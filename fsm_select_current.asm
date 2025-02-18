@@ -55,6 +55,8 @@ srtemp_message1:  db 'Select refl temp', 0   ;r->reflow
 srtemp_message2:  db 'Refl temp:      ', 0
 too_high_message: db 'max!', 0
 too_low_message:  db 'min!', 0
+forever_message:  db 'hello please', 0
+its_works:        db 'die',0
 
 state0_message:   db 'state0          ', 0 ;for testing
 state1_message:   db 'state1          ', 0 ;for testing
@@ -85,7 +87,7 @@ RST: dbit 1 ;PB7
 mf: dbit 1
 
 ;TODO: check if one is enough
-DSEG
+DSEG at 30H
 x: ds 4
 y: ds 4
 BCD: ds 5
@@ -154,8 +156,8 @@ waitms:
 
 ;set cursor before, also might have to change format	
 Display_formated_BCD:  
-    Display_BCD(bcd+4) 
-    Display_BCD(bcd+3) 
+    ;Display_BCD(bcd+4) 
+    ;Display_BCD(bcd+3) 
     Display_BCD(bcd+2) 
     Display_BCD(bcd+1) 
     Display_BCD(bcd+0)  
@@ -261,7 +263,7 @@ main:
     
     ;initialize vars, start at lowest?
     mov selecting_state, #0 ;0x00??
-	mov soak_time, #0x3C ;60
+	mov soak_time, #0x3C ;60 does this need to be like #60??????
 	mov soak_temp, #0x96 ;150 decimal
 	mov reflow_time, #0x2D ;45
 	mov reflow_temp, #0xD9 ;217
@@ -271,12 +273,29 @@ main:
     Send_Constant_String(#Title)
 	Set_Cursor(2, 1)
     Send_Constant_String(#blank)
+
+	mov R2, #250
+	lcall waitms
 	
 Forever:
 	; Wait 50 ms between readings
 	mov R2, #50
 	lcall waitms
+
+	;Set_Cursor(2, 11)
+	;mov r0, #80
+	;mov x+0, r0
+	;mov x+1, #0 
+	;mov x+2, #0
+	;mov x+3, #0
+	;lcall hex2bcd
+	;lcall Display_formated_BCD
 	
+	;check if reaches forever
+	;Set_Cursor(1, 1)
+	;Send_Constant_String(#forever_message)
+	mov R2, #250
+	lcall waitms
 	ljmp FSM_select
 
 ;for testing since there's no other fsm right now
@@ -287,11 +306,11 @@ state0:
     Send_Constant_String(#blank)
 	mov R2, #250
 	lcall waitms
-	ljmp forever
+	ljmp forever  
 
 state1:
 	Set_Cursor(1, 1)
-    Send_Constant_String(#state0_message)
+    Send_Constant_String(#state1_message)
 	Set_Cursor(2, 1)
     Send_Constant_String(#blank)
 	mov R2, #250
@@ -308,27 +327,31 @@ select_wait:
     Send_Constant_String(#swait_message1)
 	Set_Cursor(2, 1)
     Send_Constant_String(#swait_message2)
-    lcall ADC_to_PB ;checks for button press
+	mov R2, #250
+	lcall waitms
+    ;lcall ADC_to_PB ;checks for button press
     lcall rst_check
     lcall nxt_check
     lcall s_s_check
     ljmp forever ;i believe 
 
 select_soak_time:
-	cjne a, #1, select_soak_temp ;checks the state
+	;cjne a, #1, select_soak_temp ;checks the state
 	Set_Cursor(1, 1)
     Send_Constant_String(#sstime_message1)
 	Set_Cursor(2, 1)
     Send_Constant_String(#sstime_message2)
-    Set_Cursor(2, 11)
+    ;Set_Cursor(2, 11)
     push AR5  ;display the current soak_time
     mov R5, x
     mov x, soak_time
+	Set_Cursor(2, 11)
+	;Send_Constant_String(#its_works)
     lcall hex2bcd
     lcall Display_formated_BCD
     mov x, R5
     pop AR5
-    lcall ADC_to_PB ;checks for button press
+    ;lcall ADC_to_PB ;checks for button press
     lcall rst_check
     push AR3 ;set the paramaters for up/down
     push AR4
@@ -360,7 +383,7 @@ select_soak_temp:
     lcall Display_formated_BCD
     mov x, R5
     pop AR5
-    lcall ADC_to_PB ;checks for button press
+    ;lcall ADC_to_PB ;checks for button press
     lcall rst_check
     push AR3 ;set the paramaters for up/down
     push AR4
@@ -392,7 +415,7 @@ select_reflow_time:
     lcall Display_formated_BCD
     mov x, R5
     pop AR5
-    lcall ADC_to_PB ;checks for button press
+    ;lcall ADC_to_PB ;checks for button press
     lcall rst_check
     push AR3 ;set the paramaters for up/down
     push AR4
@@ -424,7 +447,7 @@ select_reflow_temp:
     lcall Display_formated_BCD
     mov x, R5
     pop AR5
-    lcall ADC_to_PB ;checks for button press
+    ;lcall ADC_to_PB ;checks for button press
     lcall rst_check
     push AR3  ;set the paramaters for up/down
     push AR4
@@ -446,86 +469,80 @@ select_reflow_temp:
 ;use R3 & R4 & R5 as parameters
 rst_check:
 	lcall ADC_to_PB
-	mov a, #'0'
 	mov c, RST
-	addc a, #0
-    ;lcall ?WriteData
-    jnc rst_check_done ;!could be jc
-    ljmp state0 ;or whatever it's called, wait state of oven fsm
-rst_check_done:
+    jnc rst_check_0 ;!could be jc
     ret
+rst_check_0:
+    ljmp state0 ;or whatever it's called, wait state of oven fsm
 
 nxt_check:
 	lcall ADC_to_PB
-	mov a, #'0'
 	mov c, NXT
-	addc a, #0
-    ;lcall ?WriteData
-    jnc next_check_done ;!could be jc
+    jnc next_check_1 
+	ret
+next_check_1: 
     mov x, selecting_state
-    load_y(5)
-    lcall x_lt_y
-    jc next_check_2
-    mov R5, selecting_state ;is r5 free? push/pop
-    addc a, R5 ;uh
+    load_y(4)
+    lcall x_eq_y
+	setb c
+	jb mf, next_check_2
+    mov a, selecting_state 
+    addc a, #0 ;uh
     mov selecting_state, a
-    ;ljmp nxt_check_done
-next_check_done:
     ret
 next_check_2:
+	clr c
 	mov selecting_state, #0 ;can't go above 4 (there are 5 states)
 	ret
 
 up_check: ;R4 max
 	lcall ADC_to_PB
-	mov a, #'0'
 	mov c, UP
-	addc a, #0
-	jnc up_check_done ;!could be jb
+	jnc up_check_1
+	ret 
+up_check_1:
 	mov x, R4
 	mov y, R5
 	lcall x_gt_y ;max > value
-	jc up_check_2
+	setb c
+	jnc up_check_2
 	mov a, R5
-	add a, #1 ;dec? hex?
+	addc a, #0 ;dec? hex?
 	mov R5, a
-	;ljmp up_check_done
-up_check_done:
 	ret
 up_check_2:
+	clr c
 	Set_Cursor(2, 11)
 	Send_Constant_string(#too_high_message)
 	ret
 
 down_check: ;R3 min
 	lcall ADC_to_PB
-	mov a, #'0'
 	mov c, DOWN
-	addc a, #0
-	jnc down_check_done
+	jnc down_check_1
+	ret
+down_check_1:
 	mov x, R4
 	mov y, R5
 	lcall x_lt_y ;min < value
-	jc down_check_2
+	setb c
+	jnc down_check_2
 	mov a, R5
-	subb a, #1 ;dec? hex?
+	subb a, #0 ;dec? hex?
 	mov R5, a
-	;ljmp down_check_done
-down_check_done:
 	ret
 down_check_2:
+	clr c
 	Set_Cursor(2, 11)
 	Send_Constant_string(#too_low_message)
 	ret
 
 s_s_check:
 	lcall ADC_to_PB
-	mov a, #'0'
 	mov c, S_S
-	addc a, #0
 	jnc s_s_check_done ;!could be jb
-	ljmp state1 ;or whatever it's called, 1st state of oven FSM
-s_s_check_done:
 	ret
+s_s_check_done:
+	ljmp state1 ;or whatever it's called, 1st state of oven FSM
 
 END
