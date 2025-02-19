@@ -92,7 +92,7 @@ DSEG at 30H
 x: ds 4
 y: ds 4
 BCD: ds 5
-selecting_state: ds 3
+selecting_state: ds 1
 soak_time: ds 2
 soak_temp: ds 2
 reflow_time: ds 2
@@ -323,8 +323,11 @@ select_wait:
     lcall s_s_check
     ljmp forever ;i believe 
 
+select_soak_temp_ah:
+	ljmp select_soak_temp
+
 select_soak_time:
-	;cjne a, #1, select_soak_temp ;checks the state
+	cjne a, #1, select_soak_temp_ah ;checks the state
 	Set_Cursor(1, 1)
     Send_Constant_String(#sstime_message1)
 	Set_Cursor(2, 1)
@@ -472,8 +475,16 @@ nxt_check:
     jnc next_check_1 
 	ret
 next_check_1: 
-    load_x(selecting_state)
-    load_y(4)
+    ;load_x(selecting_state)
+    ;load_y(4)
+	mov x, selecting_state
+	mov x+1, #0
+	mov x+2, #0
+	mov x+3, #0
+	mov y, #0x04
+	mov y+1, #0
+	mov y+2, #0
+	mov y+3, #0
     lcall x_eq_y
 	setb c
 	jb mf, next_check_2
@@ -484,6 +495,7 @@ next_check_1:
 next_check_2:
 	clr c
 	mov selecting_state, #0 ;can't go above 4 (there are 5 states)
+
 	ret
 
 up_check: ;R4 max
