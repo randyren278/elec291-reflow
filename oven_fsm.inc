@@ -1,3 +1,5 @@
+;just a rough little draft
+
 cseg
 oven_state_init:
     ;initialize vars, start at lowest?
