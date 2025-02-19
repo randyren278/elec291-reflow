@@ -53,8 +53,8 @@ srtime_message1:  db 'Select refl time', 0   ;r->reflow
 srtime_message2:  db 'Refl time:      ', 0
 srtemp_message1:  db 'Select refl temp', 0   ;r->reflow
 srtemp_message2:  db 'Refl temp:      ', 0
-too_high_message: db 'max!', 0
-too_low_message:  db 'min!', 0
+too_high_message: db 'max!     ', 0
+too_low_message:  db 'min!     ', 0
 forever_message:  db 'hello please', 0
 its_works:        db 'die',0
 ;						   1234567890123456
@@ -502,7 +502,7 @@ up_check_1:
 	mov y+3, #0
 	lcall x_gt_y ;max > value
 	setb c
-	jnc up_check_2
+	jnb mf, up_check_2
 	mov a, R5
 	addc a, #0 ;dec? hex?
 	mov R5, a
@@ -519,11 +519,17 @@ down_check: ;R3 min
 	jnc down_check_1
 	ret
 down_check_1:
-	mov x, R4
+	mov x, R3
+	mov x+1, #0
+	mov x+2, #0
+	mov x+3, #0
 	mov y, R5
+	mov y+1, #0
+	mov y+2, #0
+	mov y+3, #0
 	lcall x_lt_y ;min < value
 	setb c
-	jnc down_check_2
+	jnb mf, down_check_2
 	mov a, R5
 	subb a, #0 ;dec? hex?
 	mov R5, a
