@@ -4,7 +4,7 @@ cseg
 oven_state_init:
     ;initialize vars, start at lowest?
     mov pwm, #0x00 ;0x00??
-	mov state, #0x00 ;60 does this need to be like #60??????
+	mov oven_state, #0x00 ;60 does this need to be like #60??????
 	;mov soak_temp, #0x96 ;150 decimal
     ;mov soak_time
 	;mov reflow_time, #0x2D ;45
@@ -12,7 +12,7 @@ oven_state_init:
     ret
 ;oven fsm  
 FSM1:
-    mov a, state
+    mov a, oven_state
 ;power = 0, if button pressed go to state 1
 state0:
     cjne a, #0, state1
@@ -20,7 +20,7 @@ state0:
     lcall ADC_to_PB
     mov c, S_S
     jc state0
-    mov state, #0x01
+    mov oven_state, #0x01
 state0_done:
     ljmp forever
    
@@ -34,7 +34,7 @@ state1:
     clr c
     subb a, temp
     jnc state1_done
-    mov state, #2
+    mov oven_state, #2
 state1_done:
     ljmp forever
 
@@ -47,7 +47,7 @@ state2:
     clr c
     subb a, sec
     jnc state2_done
-    mov state, #3
+    mov oven_state, #3
 state2_done:
     cpl SOUND_OUT
     clr SOUND_OUT
@@ -63,7 +63,7 @@ state3:
     clr c
     subb a, temp
     jnc state3_done
-    mov state, #4
+    mov oven_state, #4
    
 state3_done:
     ljmp forever
@@ -77,7 +77,7 @@ state4:
     clr c
     subb a, sec
     jnc state4_done
-    mov state, #5
+    mov oven_state, #5
 
 state4_done:
     cpl SOUND_OUT ; speaker
@@ -92,7 +92,7 @@ state5:
     clr c
     subb a, temp
     jnc state5_done
-    mov state, #0
+    mov oven_state, #0
     Set_Cursor(1, 1)  ;set later
     Send_Constant_String(#done_message)
 state5_done:

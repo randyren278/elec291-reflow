@@ -34,14 +34,16 @@ $LIST
 
 CLK               EQU 16600000 ; Microcontroller system frequency in Hz
 BAUD              EQU 115200 ; Baud rate of UART in bps
-TIMER1_RELOAD     EQU (0x100-(CLK/(16*BAUD)))
+TIMER1_RATE         EQU 100      ; 100Hz or 10ms
+TIMER1_RELOAD       EQU (65536-(CLK/(16*TIMER2_RATE))) ; Need to change timer 1 input divide to 16 in T2MOD
 TIMER0_RELOAD_1MS EQU (0x10000-(CLK/1000))
 TIMER2_RATE   EQU 1000     ; 1000Hz, for a timer tick of 1ms
 TIMER2_RELOAD EQU ((65536-(CLK/TIMER2_RATE)))
 
 ORG 0x0000
 	ljmp main
-
+org 0x002B ;FIX ASAP
+	ljmp Timer1_ISR
 ORG 0x002B
 	ljmp Timer2_ISR
 
@@ -62,6 +64,8 @@ too_high_message: db 'max!     ', 0
 too_low_message:  db 'min!     ', 0
 forever_message:  db 'hello please', 0
 its_works:        db 'die',0
+done_message: 	  db 'done!',0
+stop_message: 	  db 'stopped!',0
 ;						   1234567890123456
 reset_state_message:   db 'Settings Reset! ', 0 ;for testing
 state1_message:   db 'state1          ', 0 ;for testing
@@ -74,7 +78,8 @@ LCD_D4 equ P0.0
 LCD_D5 equ P0.1
 LCD_D6 equ P0.2
 LCD_D7 equ P0.3
-
+SOUND_OUT equ P1.5
+PWM_OUT    EQU P1.0 ; Logic 1=oven on
 
 $NOLIST
 $include(LCD_4bit.inc) ; A library of LCD related functions and utility macros
@@ -93,6 +98,7 @@ NXT: dbit 1 ;PB6
 RST: dbit 1 ;PB7
 mf: dbit 1
 seconds_flag: dbit 1
+s_flag: dbit 1 ; set to 1 every time a second has passed
 
 ;TODO: check if one is enough
 DSEG at 30H
@@ -100,16 +106,21 @@ x: ds 4
 y: ds 4
 BCD: ds 5
 selecting_state: ds 1
+oven_state: ds 1
 soak_time: ds 2
 soak_temp: ds 2
 reflow_time: ds 2
 reflow_temp: ds 2
 Count1ms:     ds 2 
 sec: ds 1
+temp: ds 1
+pwm_counter:  ds 1 ; Free running counter 0, 1, 2, ..., 100, 0
+pwm:          ds 1 ; pwm percentage
+seconds:      ds 1 ; a seconds counter attached to Timer 2 ISR
 
 $NOLIST
 $include(math32.inc)
-;$include(oven_fsm.inc)
+$include(oven_fsm.inc)
 $include(read_temp.inc)
 $LIST
 
@@ -422,15 +433,6 @@ no_second:
 
 ;for testing since there's no other fsm right now
 
-state1:
-	Set_Cursor(1, 1)
-    Send_Constant_String(#state1_message)
-	Set_Cursor(2, 1)
-    Send_Constant_String(#blank)
-	mov R2, #250
-	lcall waitms
-	ljmp forever
-
 ;begin select FSM
 FSM_select:
 	mov a, selecting_state
@@ -684,6 +686,6 @@ s_s_check:
 	jnc s_s_check_done ;!could be jb
 	ret
 s_s_check_done:
-	ljmp state1 ;or whatever it's called, 1st state of oven FSM
+	ljmp state0 ;or whatever it's called, 1st state of oven FSM
 
 END
