@@ -42,8 +42,6 @@ TIMER2_RELOAD EQU ((65536-(CLK/TIMER2_RATE)))
 
 ORG 0x0000
 	ljmp main
-org 0x001B ;HIGH CHANCE THIS DOESNT WORK, IF PWM FAILS CHECK THIS FIRST
-	ljmp Timer1_ISR
 ORG 0x002B
 	ljmp Timer2_ISR
 
@@ -140,21 +138,6 @@ Init_All:
 	anl	T3CON, #0b11011111
 	anl	TMOD, #0x0F ; Clear the configuration bits for timer 1
 	orl	TMOD, #0x20 ; Timer 1 Mode 2
-
-	; TIMER 1 Code from PWM (WIP)
-	; Initialize timer 2 for periodic interrupts
-	mov T1CON, #0 ; Stop timer/counter.  Autoreload mode.
-	mov TH1, #high(TIMER1_RELOAD)
-	mov TL1, #low(TIMER1_RELOAD)
-	; Set the reload value
-	mov T2MOD, #0b1010_0000 ; Enable timer 2 autoreload, and clock divider is 16
-	mov RCMP1H, #high(TIMER1_RELOAD)
-	mov RCMP1L, #low(TIMER1_RELOAD)
-	; Init the free running 10 ms counter to zero
-	mov pwm_counter, #0
-	; Enable the timer and interrupts
-	orl EIE, #0x80 ; Enable timer 2 interrupt ET2=1
-    setb TR1  ; Enable timer 2
 	
 	; Using timer 0 for delay functions.  Initialize here:
 	clr	TR0 ; Stop timer 0
@@ -232,6 +215,8 @@ Timer2_ISR:
 	; The two registers used in the ISR must be saved in the stack
 	push acc
 	push psw
+	push y
+	push x
 	
 	; Increment the 16-bit one mili second counter
 	inc Count1ms+0    ; Increment the low 8-bits first
@@ -241,8 +226,23 @@ Timer2_ISR:
 
 Inc_Done_randys_version:
 
-	;check if 1000 ms has passed 
+	; CODE TO MAKE THE PWM WORK
+	clr c
+	load_x(pwm)
+	load_y(10)
+	lcall mul32
+	clr c
+	mov a, x+0
+	subb a, Count1ms+0
+	jnc pwm_output
+	clr c 
+	mov a, x+1
+	subb a, Count1ms+1 ; If pwm_counter <= pwm then c=1
+pwm_output:
+	cpl c
+	mov PWM_OUT, c
 
+	;check if 1000 ms has passed 
 	mov a, Count1ms+0
 	cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
 	mov a, Count1ms+1
@@ -289,42 +289,13 @@ Inc_Done_randys_version:
 
 		
 Time_increment_done:
+	pop x
+	pop y
 	pop psw
 	pop acc
 	reti
 
-;-----------------------------------------
-; ISR for Timer1
-;--------------------------------------
-Timer1_ISR:
-	clr TF1  ; Timer 2 doesn't clear TF2 automatically. Do it in the ISR.  It is bit addressable.
-	push psw
-	push acc
-	
-	inc pwm_counter
-	clr c
-	mov a, pwm
-	subb a, pwm_counter ; If pwm_counter <= pwm then c=1
-	cpl c
-	mov PWM_OUT, c
-	
-	mov a, pwm_counter
-	cjne a, #100, Timer1_ISR_done
-	mov pwm_counter, #0
-	inc seconds ; It is super easy to keep a seconds count here
-	setb s_flag
 
-Timer1_ISR_done:
-	pop acc
-	pop psw
-	reti
-
-line1:
-	DB 'PWM Example     '
-	DB 0
-line2:
-	DB 'Chk pin 15:P1.0 '
-	DB 0
 
 
 
