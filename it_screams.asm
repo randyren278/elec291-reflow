@@ -42,7 +42,7 @@ TIMER2_RELOAD EQU ((65536-(CLK/TIMER2_RATE)))
 
 ORG 0x0000
 	ljmp main
-org 0x002B ;FIX ASAP
+org 0x001B ;HIGH CHANCE THIS DOESNT WORK, IF PWM FAILS CHECK THIS FIRST
 	ljmp Timer1_ISR
 ORG 0x002B
 	ljmp Timer2_ISR
@@ -140,8 +140,21 @@ Init_All:
 	anl	T3CON, #0b11011111
 	anl	TMOD, #0x0F ; Clear the configuration bits for timer 1
 	orl	TMOD, #0x20 ; Timer 1 Mode 2
-	mov	TH1, #TIMER1_RELOAD ; TH1=TIMER1_RELOAD;
-	setb TR1
+
+	; TIMER 1 Code from PWM (WIP)
+	; Initialize timer 2 for periodic interrupts
+	mov T1CON, #0 ; Stop timer/counter.  Autoreload mode.
+	mov TH1, #high(TIMER1_RELOAD)
+	mov TL1, #low(TIMER1_RELOAD)
+	; Set the reload value
+	mov T2MOD, #0b1010_0000 ; Enable timer 2 autoreload, and clock divider is 16
+	mov RCMP1H, #high(TIMER1_RELOAD)
+	mov RCMP1L, #low(TIMER1_RELOAD)
+	; Init the free running 10 ms counter to zero
+	mov pwm_counter, #0
+	; Enable the timer and interrupts
+	orl EIE, #0x80 ; Enable timer 2 interrupt ET2=1
+    setb TR1  ; Enable timer 2
 	
 	; Using timer 0 for delay functions.  Initialize here:
 	clr	TR0 ; Stop timer 0
@@ -280,7 +293,38 @@ Time_increment_done:
 	pop acc
 	reti
 
+;-----------------------------------------
+; ISR for Timer1
+;--------------------------------------
+Timer1_ISR:
+	clr TF1  ; Timer 2 doesn't clear TF2 automatically. Do it in the ISR.  It is bit addressable.
+	push psw
+	push acc
+	
+	inc pwm_counter
+	clr c
+	mov a, pwm
+	subb a, pwm_counter ; If pwm_counter <= pwm then c=1
+	cpl c
+	mov PWM_OUT, c
+	
+	mov a, pwm_counter
+	cjne a, #100, Timer1_ISR_done
+	mov pwm_counter, #0
+	inc seconds ; It is super easy to keep a seconds count here
+	setb s_flag
 
+Timer1_ISR_done:
+	pop acc
+	pop psw
+	reti
+
+line1:
+	DB 'PWM Example     '
+	DB 0
+line2:
+	DB 'Chk pin 15:P1.0 '
+	DB 0
 
 
 
