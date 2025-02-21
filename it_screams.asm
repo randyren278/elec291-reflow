@@ -215,8 +215,14 @@ Timer2_ISR:
 	; The two registers used in the ISR must be saved in the stack
 	push acc
 	push psw
-	push y
-	push x
+	push y+0
+	push y+1
+	push y+2
+	push y+3
+	push x+0
+	push x+1
+	push x+2
+	push x+3
 	
 	; Increment the 16-bit one mili second counter
 	inc Count1ms+0    ; Increment the low 8-bits first
@@ -289,8 +295,14 @@ pwm_output:
 
 		
 Time_increment_done:
-	pop x
-	pop y
+	push x+3
+	push x+2
+	push x+1
+	push x+0
+	push y+3
+	push y+2
+	push y+1
+	push y+0
 	pop psw
 	pop acc
 	reti
