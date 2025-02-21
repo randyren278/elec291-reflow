@@ -104,6 +104,7 @@ RST: dbit 1 ;PB7
 mf: dbit 1
 seconds_flag: dbit 1
 s_flag: dbit 1 ; set to 1 every time a second has passed
+oven_flag: dbit 1
 
 ;TODO: check if one is enough
 DSEG at 30H
@@ -112,9 +113,9 @@ y: ds 4
 BCD: ds 5
 selecting_state: ds 1
 oven_state: ds 1
-soak_time: ds 2
-soak_temp: ds 2
-reflow_time: ds 2
+soak_time: ds 1
+soak_temp: ds 1
+reflow_time: ds 1
 reflow_temp: ds 2
 Count1ms:     ds 2 
 sec: ds 1
@@ -126,7 +127,7 @@ seconds:      ds 1 ; a seconds counter attached to Timer 2 ISR
 $NOLIST
 $include(math32.inc)
 $include(read_temp.inc)
-$include(oven_fsm.inc)
+$include(new_oven_fsm.inc)
 $LIST
 
 CSEG
@@ -266,6 +267,9 @@ pwm_output:
 	clr A
 	mov Count1ms+0, A
 	mov Count1ms+1, A
+
+	mov c, oven_flag
+	addc seconds, #0 ; It is super easy to keep a seconds count here
 	setb seconds_flag
 
 	;increment second flag 
@@ -536,19 +540,24 @@ select_soak_time:
     ljmp forever ;i believe 
 
 select_soak_temp:
-	cjne a, #2, select_reflow_time ;checks the state
+	cjne a, #2, $+6 ;checks the state
+	ljmp $+6
+	ljmp select_reflow_time
 	Set_Cursor(1, 1)
     Send_Constant_String(#sstemp_message1)
 	Set_Cursor(2, 1)
     Send_Constant_String(#sstemp_message2)
     Set_Cursor(2, 11)
     push AR5  ;display current soak temp
-    mov R5, x
-    mov x, soak_temp
+	push_x
+	mov x+0, soak_temp+0
+	mov x+1, soak_temp+1
+	mov x+2, #0
+	mov x+3, #0
     lcall hex2bcd
     lcall Display_formated_BCD
-    mov x, R5
-    pop AR5
+    ;mov x, R5
+	pop_x
     ;lcall ADC_to_PB ;checks for button press
     lcall rst_check
     push AR3 ;set the paramaters for up/down
@@ -730,6 +739,6 @@ s_s_check:
 	jnc s_s_check_done ;!could be jb
 	ret
 s_s_check_done:
-	ljmp state0 ;or whatever it's called, 1st state of oven FSM
+	ljmp FSM_Init ;or whatever it's called, 1st state of oven FSM
 
 END

@@ -35,13 +35,13 @@
 0000             37   TIMER1_RATE         EQU 100      ; 100Hz or 10ms
 0000             38   TIMER1_RELOAD       EQU (65536-(CLK/(16*TIMER2_RATE))) ; Need to change timer 1 input divide to 16 in T2MOD
 0000             39   TIMER0_RELOAD_1MS EQU (0x10000-(CLK/1000))
-0000             40   TIMER2_RATE   EQU 1000     ; 1000Hz, for a timer tick of 1ms
+0000             40   TIMER2_RATE   EQU 100     ; 1000Hz, for a timer tick of 1ms
 0000             41   TIMER2_RELOAD EQU ((65536-(CLK/TIMER2_RATE)))
 0000             42   
 0000             43   ORG 0x0000
-0000 020B4D      44            ljmp main
+0000 020BCF      44            ljmp main
 002B             45   ORG 0x002B
-002B 020A75      46            ljmp Timer2_ISR
+002B 020B17      46            ljmp Timer2_ISR
 002E             47   
 002E             48   ;                     1234567890123456    <- This helps determine the location of the counter
 002E 20206865    49   title:            db '  here we go!  ', 0
@@ -188,815 +188,821 @@
 0005            104   mf: dbit 1
 0006            105   seconds_flag: dbit 1
 0007            106   s_flag: dbit 1 ; set to 1 every time a second has passed
-0008            107   
-0008            108   ;TODO: check if one is enough
-0030            109   DSEG at 30H
-0030            110   x: ds 4
-0034            111   y: ds 4
-0038            112   BCD: ds 5
-003D            113   selecting_state: ds 1
-003E            114   oven_state: ds 1
-003F            115   soak_time: ds 2
-0041            116   soak_temp: ds 2
-0043            117   reflow_time: ds 2
-0045            118   reflow_temp: ds 2
-0047            119   Count1ms:     ds 2 
-0049            120   sec: ds 1
-004A            121   temp: ds 1
-004B            122   pwm_counter:  ds 1 ; Free running counter 0, 1, 2, ..., 100, 0
-004C            123   pwm:          ds 1 ; pwm percentage
-004D            124   seconds:      ds 1 ; a seconds counter attached to Timer 2 ISR
-004E            125   
-                546   $LIST
-                129   $LIST
-09DD            131   
-09DD            132   CSEG
-09DD            133   Init_All:
-09DD            134            ; Configure all the pins for biderectional I/O
-09DD 75AC00     135            mov     P3M1, #0x00
-09E0 75AD00     136            mov     P3M2, #0x00
-09E3 75B300     137            mov     P1M1, #0x00
-09E6 75B400     138            mov     P1M2, #0x00
-09E9 75B100     139            mov     P0M1, #0x00
-09EC 75B200     140            mov     P0M2, #0x00
-09EF            141            
-09EF 438E10     142            orl     CKCON, #0x10 ; CLK is the input for timer 1
-09F2 438780     143            orl     PCON, #0x80 ; Bit SMOD=1, double baud rate
-09F5 759852     144            mov     SCON, #0x52
-09F8 53C4DF     145            anl     T3CON, #0b11011111
-09FB 53890F     146            anl     TMOD, #0x0F ; Clear the configuration bits for timer 1
-09FE 438920     147            orl     TMOD, #0x20 ; Timer 1 Mode 2
-0A01            148            
-0A01            149            ; Using timer 0 for delay functions.  Initialize here:
-0A01 C28C       150            clr     TR0 ; Stop timer 0
-0A03 438E08     151            orl     CKCON,#0x08 ; CLK is the input for timer 0
-0A06 5389F0     152            anl     TMOD,#0xF0 ; Clear the configuration bits for timer 0
-0A09 438901     153            orl     TMOD,#0x01 ; Timer 0 in Mode 1: 16-bit timer
-0A0C            154            
-0A0C            155            ; Initialize and start the ADC:
-0A0C            156            
-0A0C            157            ; AIN0 is connected to P1.7.  Configure P1.7 as input.
-0A0C 43B380     158            orl     P1M1, #0b10000000
-0A0F 53B47F     159            anl     P1M2, #0b01111111
-0A12            160            
-0A12            161            ; AINDIDS select if some pins are analog inputs or digital I/O:
-0A12 75F600     162            mov AINDIDS, #0x00 ; Disable all analog inputs
-0A15 43F601     163            orl AINDIDS, #0b00000001 ; Using AIN0
-0A18 43E101     164            orl ADCCON1, #0x01 ; Enable ADC
-0A1B            165   
-0A1B            166            ; timer 2 ?? 
-0A1B 120A53     167            lcall Timer2_Init
-0A1E D2AF       168            setb EA
-0A20            169   
-0A20            170            
-0A20 22         171            ret
-0A21            172            
-0A21            173   wait_1ms:
-0A21 C28C       174            clr     TR0 ; Stop timer 0
-0A23 C28D       175            clr     TF0 ; Clear overflow flag
-0A25 758CBF     176            mov     TH0, #high(TIMER0_RELOAD_1MS)
-0A28 758A28     177            mov     TL0,#low(TIMER0_RELOAD_1MS)
-0A2B D28C       178            setb TR0
-0A2D 308DFD     179            jnb     TF0, $ ; Wait for overflow
-0A30 22         180            ret
-0A31            181   
-0A31            182   ; Wait the number of miliseconds in R2
-0A31            183   waitms:
-0A31 120A21     184            lcall wait_1ms
-0A34 DAFB       185            djnz R2, waitms
-0A36 22         186            ret
-0A37            187   
-0A37            188   ;set cursor before, also might have to change format     
-0A37            189   Display_formated_BCD:  
-0A37            190       ;Display_BCD(bcd+4) 
-0A37            191       ;Display_BCD(bcd+3) 
-0A37 C000       192            push ar0
-0A39 A83A       192            mov r0, bcd+2
-0A3B 120253     192            lcall ?Display_BCD
-0A3E D000       192            pop ar0
-0A40            192    
-0A40 C000       193            push ar0
-0A42 A839       193            mov r0, bcd+1
-0A44 120253     193            lcall ?Display_BCD
-0A47 D000       193            pop ar0 
-0A49 C000       194            push ar0
-0A4B A838       194            mov r0, bcd+0
-0A4D 120253     194            lcall ?Display_BCD
-0A50 D000       194            pop ar0  
-0A52 22         195       ret
-0A53            196   
-0A53            197   Timer2_Init:
-0A53 75C800     198            mov T2CON, #0 ; Stop timer/counter.  Autoreload mode.
-0A56 75CDBF     199            mov TH2, #high(TIMER2_RELOAD)
-0A59 75CC28     200            mov TL2, #low(TIMER2_RELOAD)
-0A5C            201            ; Set the reload value
-0A5C 75C980     202            mov T2MOD, #1000_0000b 
-0A5F            203            ;orl T2MOD, #0x80 ; Enable timer 2 autoreload this was it before
-0A5F 75CBBF     204            mov RCMP2H, #high(TIMER2_RELOAD)
-0A62 75CA28     205            mov RCMP2L, #low(TIMER2_RELOAD)
-0A65            206            ; Init One millisecond interrupt counter.  It is a 16-bit variable made with two 8-bit parts
-0A65 E4         207            clr a
-0A66 F547       208            mov Count1ms+0, a
-0A68 F548       209            mov Count1ms+1, a
-0A6A 754900     210            mov sec, #0
-0A6D C206       211            clr seconds_flag
-0A6F            212            ; Enable the timer and interrupts
-0A6F 439B80     213            orl EIE, #0x80 ; Enable timer 2 interrupt ET2=1
-0A72 D2CA       214       setb TR2  ; Enable timer 2
-0A74 22         215            ret
-0A75            216   ;---------------------------------;
-0A75            217   ; ISR for timer 2                 ;
-0A75            218   ;---------------------------------;
-0A75            219   Timer2_ISR:
-0A75 C2CF       220            clr TF2  ; Timer 2 doesn't clear TF2 automatically. Do it in the ISR.  It is bit addressable.
-0A77            221            
-0A77            222            ; The two registers used in the ISR must be saved in the stack
-0A77 C0E0       223            push acc
-0A79 C0D0       224            push psw
-0A7B C034       225            push y+0
-0A7D C035       226            push y+1
-0A7F C036       227            push y+2
-0A81 C037       228            push y+3
-0A83 C030       229            push x+0
-0A85 C031       230            push x+1
-0A87 C032       231            push x+2
-0A89 C033       232            push x+3
-0A8B            233            
-0A8B            234            ; Increment the 16-bit one mili second counter
-0A8B 0547       235            inc Count1ms+0    ; Increment the low 8-bits first
-0A8D E547       236            mov a, Count1ms+0 ; If the low 8-bits overflow, then increment high 8-bits
-0A8F 7002       237            jnz Inc_Done_randys_version
-0A91 0548       238            inc Count1ms+1
-0A93            239   
-0A93            240   Inc_Done_randys_version:
-0A93            241   
-0A93            242            ; CODE TO MAKE THE PWM WORK
-0A93 C3         243            clr c
-0A94 75304C     244            mov x+0, #low (pwm % 0x10000) 
-0A97 753100     244            mov x+1, #high(pwm % 0x10000) 
-0A9A 753200     244            mov x+2, #low (pwm / 0x10000) 
-0A9D 753300     244            mov x+3, #high(pwm / 0x10000) 
-0AA0 75340A     245            mov y+0, #low (10 % 0x10000) 
-0AA3 753500     245            mov y+1, #high(10 % 0x10000) 
-0AA6 753600     245            mov y+2, #low (10 / 0x10000) 
-0AA9 753700     245            mov y+3, #high(10 / 0x10000) 
-0AAC 120436     246            lcall mul32
-0AAF C3         247            clr c
-0AB0 E530       248            mov a, x+0
-0AB2 9547       249            subb a, Count1ms+0
-0AB4 5005       250            jnc pwm_output
-0AB6 C3         251            clr c 
-0AB7 E531       252            mov a, x+1
-0AB9 9548       253            subb a, Count1ms+1 ; If pwm_counter <= pwm then c=1
-0ABB            254   pwm_output:
-0ABB B3         255            cpl c
-0ABC 9290       256            mov PWM_OUT, c
-0ABE            257   
-0ABE            258            ;check if 1000 ms has passed 
-0ABE E547       259            mov a, Count1ms+0
-0AC0 B4E813     260            cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
-0AC3 E548       261            mov a, Count1ms+1
-0AC5 B4030E     262            cjne a, #high(1000), Time_increment_done
-0AC8            263   
-0AC8            264            ; if1000 ms has passed 
-0AC8            265   
-0AC8 E4         266            clr A
-0AC9 F547       267            mov Count1ms+0, A
-0ACB F548       268            mov Count1ms+1, A
-0ACD D206       269            setb seconds_flag
-0ACF            270   
-0ACF            271            ;increment second flag 
-0ACF            272   
-0ACF E549       273            mov a, sec
-0AD1 2401       274            add a, #1
-0AD3 D4         275            da A
-0AD4 F549       276            mov sec, A
-0AD6            277   
-0AD6            278   
-0AD6            279   ;Inc_Done:
-0AD6            280            ; Check if second has passed
-0AD6            281   ;        mov a, Count1ms+0
-0AD6            282   ;        cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
-0AD6            283   ;        mov a, Count1ms+1
-0AD6            284   ;        cjne a, #high(1000), Time_increment_done
-0AD6            285            
-0AD6            286            ; 1000 milliseconds have passed.  Set a flag so the main program knows
-0AD6            287   ;        setb seconds_flag ; Let the main program know a second had passed
-0AD6            288            ;cpl TR0 ; Enable/disable timer/counter 0. This line creates a beep-silence-beep-silence sound.
-0AD6            289            ; Reset to zero the milli-seconds counter, it is a 16-bit variable
-0AD6            290   ;        clr a
-0AD6            291   ;        mov Count1ms+0, a
-0AD6            292   ;        mov Count1ms+1, a
-0AD6            293            ; Increment the time only when state flag is on
-0AD6            294            ;jnb state, Time_increment_done
-0AD6            295            
-0AD6            296   ;        mov a, sec
-0AD6            297   ;        add a, #0x01
-0AD6            298   ;        da a
-0AD6            299   ;        mov sec, a
-0AD6            300   ;        
-0AD6            301   ;        cjne a, #0x60, Time_increment_done
-0AD6            302   
-0AD6            303                    
-0AD6            304   Time_increment_done:
-0AD6 D033       305            pop x+3
-0AD8 D032       306            pop x+2
-0ADA D031       307            pop x+1
-0ADC D030       308            pop x+0
-0ADE D037       309            pop y+3
-0AE0 D036       310            pop y+2
-0AE2 D035       311            pop y+1
-0AE4 D034       312            pop y+0
-0AE6 D0D0       313            pop psw
-0AE8 D0E0       314            pop acc
-0AEA 32         315            reti
-0AEB            316   
-0AEB            317   
-0AEB            318   
-0AEB            319   
-0AEB            320   
-0AEB            321   
-0AEB            322   
-0AEB            323   ADC_to_PB:
-0AEB C0E0       324            push acc
-0AED 53E8F0     325            anl ADCCON0, #0xF0
-0AF0 43E800     326            orl ADCCON0, #0x00 ; Select AIN0
-0AF3            327            
-0AF3 C2EF       328            clr ADCF
-0AF5 D2EE       329            setb ADCS   ; ADC start trigger signal
-0AF7 30EFFD     330       jnb ADCF, $ ; Wait for conversion complete
-0AFA            331   
-0AFA D204       332            setb RST;PB7
-0AFC D203       333            setb NXT;PB6
-0AFE D202       334            setb UP;PB5
-0B00 D201       335            setb DOWN;PB4
-0B02 D200       336            setb S_S;PB3
-0B04            337            ;setb PB2
-0B04            338            ;setb PB1
-0B04            339            ;setb PB0
-0B04            340            
-0B04            341            ; Check PB7
-0B04            342   ;ADC_to_PB_L7:
-0B04            343   ;        clr c
-0B04            344   ;        mov a, ADCRH
-0B04            345   ;        subb a, #0xf0
-0B04            346   ;        jc ADC_to_PB_L6
-0B04            347   ;        clr RST;PB7
-0B04            348   ;        ret
-0B04            349   ;
-0B04            350   ;        ; Check PB6
-0B04            351   ;ADC_to_PB_L6:
-0B04            352   ;        clr c
-0B04            353   ;        mov a, ADCRH
-0B04            354   ;        subb a, #0xd0
-0B04            355   ;        jc ADC_to_PB_L5
-0B04            356   ;        clr NXT;PB6
-0B04            357   ;        ret
-0B04            358   
-0B04            359            ; Check PB5
-0B04            360   ADC_to_PB_L5:
-0B04 C3         361            clr c
-0B05 E5C3       362            mov a, ADCRH
-0B07 94B0       363            subb a, #0xb0
-0B09 4005       364            jc ADC_to_PB_L4
-0B0B C204       365            clr RST;PB5
-0B0D D0E0       366            pop acc
-0B0F 22         367            ret
-0B10            368   
-0B10            369            ; Check PB4
-0B10            370   ADC_to_PB_L4:
-0B10 C3         371            clr c
-0B11 E5C3       372            mov a, ADCRH
-0B13 9490       373            subb a, #0x90
-0B15 4005       374            jc ADC_to_PB_L3
-0B17 C203       375            clr NXT;PB4
-0B19 D0E0       376            pop acc
-0B1B 22         377            ret
-0B1C            378   
-0B1C            379            ; Check PB3
-0B1C            380   ADC_to_PB_L3:
-0B1C C3         381            clr c
-0B1D E5C3       382            mov a, ADCRH
-0B1F 9470       383            subb a, #0x70
-0B21 4005       384            jc ADC_to_PB_L2
-0B23 C202       385            clr UP;PB3
-0B25 D0E0       386            pop acc
-0B27 22         387            ret
-0B28            388   
-0B28            389            ; Check PB2
-0B28            390   ADC_to_PB_L2:
-0B28 C3         391            clr c
-0B29 E5C3       392            mov a, ADCRH
-0B2B 9450       393            subb a, #0x50
-0B2D 4005       394            jc ADC_to_PB_L1
-0B2F C201       395            clr DOWN
-0B31 D0E0       396            pop acc
-0B33 22         397            ret
-0B34            398   
-0B34            399            ; Check PB1
-0B34            400   ADC_to_PB_L1:
-0B34 C3         401            clr c
-0B35 E5C3       402            mov a, ADCRH
-0B37 9430       403            subb a, #0x30
-0B39 4005       404            jc ADC_to_PB_L0
-0B3B C200       405            clr S_S
-0B3D D0E0       406            pop acc
-0B3F 22         407            ret
-0B40            408   
-0B40            409            ; Check PB0
-0B40            410   ADC_to_PB_L0:
-0B40 C3         411            clr c
-0B41 E5C3       412            mov a, ADCRH
-0B43 9410       413            subb a, #0x10
-0B45 4003       414            jc ADC_to_PB_Done
-0B47            415            ;clr PB0
-0B47 D0E0       416            pop acc
-0B49 22         417            ret
-0B4A            418            
-0B4A            419   ADC_to_PB_Done:
-0B4A            420            ; No pusbutton pressed  
-0B4A D0E0       421            pop acc
-0B4C 22         422            ret
-0B4D            423            
-0B4D            424   main:
-0B4D 75817F     425            mov sp, #0x7f
-0B50 12052C     426            lcall Temp_Init_All
-0B53 1209DD     427            lcall Init_All
-0B56 12020E     428       lcall LCD_4BIT
-0B59            429       
-0B59 120269     430       lcall state_init ;From State_Machine.inc
-0B5C            431       
-0B5C            432       ; initial messages in LCD
-0B5C C0E0       433            push acc
-0B5E 7401       433            mov a, #1
-0B60 14         433            dec a
-0B61 12024E     433            lcall ?Set_Cursor_1 ; Select column and row
-0B64 D0E0       433            pop acc
-0B66 C083       434            push dph
-0B68 C082       434            push dpl
-0B6A C0E0       434            push acc
-0B6C 90002E     434            mov dptr, #Title
-0B6F 120241     434            lcall ?Send_Constant_String
-0B72 D0E0       434            pop acc
-0B74 D082       434            pop dpl
-0B76 D083       434            pop dph
-0B78 C0E0       435            push acc
-0B7A 7401       435            mov a, #1
-0B7C 14         435            dec a
-0B7D 12024C     435            lcall ?Set_Cursor_2 ; Select column and row
-0B80 D0E0       435            pop acc
-0B82 C083       436            push dph
-0B84 C082       436            push dpl
-0B86 C0E0       436            push acc
-0B88 90003E     436            mov dptr, #blank
-0B8B 120241     436            lcall ?Send_Constant_String
-0B8E D0E0       436            pop acc
-0B90 D082       436            pop dpl
-0B92 D083       436            pop dph
-0B94            437   
-0B94 7AFA       438            mov R2, #250
-0B96 120A31     439            lcall waitms
-0B99            440            
-0B99            441   Forever:
-0B99            442            ; Wait 50 ms between readings
-0B99 7A32       443            mov R2, #50
-0B9B 120A31     444            lcall waitms
-0B9E            445   
-0B9E            446            ; output? 
-0B9E 300604     447            jnb seconds_flag, no_second
-0BA1 C206       448            clr seconds_flag
-0BA3 B295       449            cpl P1.5
-0BA5            450   
-0BA5            451   no_second:
-0BA5            452   
-0BA5 7A32       453            mov R2, #50
-0BA7 120A31     454            lcall waitms
-0BAA            455   
-0BAA 020BAD     456            ljmp FSM_select
-0BAD            457   
-0BAD            458            ;Set_Cursor(2, 11)
-0BAD            459            ;mov r0, #80
-0BAD            460            ;mov x+0, r0
-0BAD            461            ;mov x+1, #0 
-0BAD            462            ;mov x+2, #0
-0BAD            463            ;mov x+3, #0
-0BAD            464            ;lcall hex2bcd
-0BAD            465            ;lcall Display_formated_BCD
-0BAD            466            
-0BAD            467            ;check if reaches forever
-0BAD            468            ;Set_Cursor(1, 1)
-0BAD            469            ;Send_Constant_String(#forever_message)
-0BAD            470            ;mov R2, #250
-0BAD            471            ;lcall waitms
-0BAD            472            ;ljmp FSM_select
-0BAD            473   
-0BAD            474   ;no_second:
-0BAD            475   ;        ljmp Forever
-0BAD            476   
-0BAD            477   ;for testing since there's no other fsm right now
-0BAD            478   
-0BAD            479   
-0BAD            480   ;begin select FSM
-0BAD            481   FSM_select:
-0BAD E53D       482            mov a, selecting_state
-0BAF            483   
-0BAF            484   select_wait:
-0BAF B4004C     485            cjne a, #0, select_soak_time ;checks the state
-0BB2 C0E0       486            push acc
-0BB4 7401       486            mov a, #1
-0BB6 14         486            dec a
-0BB7 12024E     486            lcall ?Set_Cursor_1 ; Select column and row
-0BBA D0E0       486            pop acc
-0BBC C083       487            push dph
-0BBE C082       487            push dpl
-0BC0 C0E0       487            push acc
-0BC2 90004F     487            mov dptr, #swait_message1
-0BC5 120241     487            lcall ?Send_Constant_String
-0BC8 D0E0       487            pop acc
-0BCA D082       487            pop dpl
-0BCC D083       487            pop dph
-0BCE C0E0       488            push acc
-0BD0 7401       488            mov a, #1
-0BD2 14         488            dec a
-0BD3 12024C     488            lcall ?Set_Cursor_2 ; Select column and row
-0BD6 D0E0       488            pop acc
-0BD8 C083       489            push dph
-0BDA C082       489            push dpl
-0BDC C0E0       489            push acc
-0BDE 900060     489            mov dptr, #swait_message2
-0BE1 120241     489            lcall ?Send_Constant_String
-0BE4 D0E0       489            pop acc
-0BE6 D082       489            pop dpl
-0BE8 D083       489            pop dph
-0BEA 7AFA       490            mov R2, #250
-0BEC 120A31     491            lcall waitms
-0BEF            492       ;lcall ADC_to_PB ;checks for button press
-0BEF 120DF4     493       lcall rst_check
-0BF2 120DFF     494       lcall nxt_check
-0BF5 120EC2     495       lcall s_s_check
-0BF8 020B99     496       ljmp forever ;i believe 
-0BFB            497   
-0BFB            498   select_soak_temp_ah:
-0BFB 020C83     499            ljmp select_soak_temp
-0BFE            500   
-0BFE            501   select_soak_time:
-0BFE B401FA     502            cjne a, #1, select_soak_temp_ah ;checks the state
-0C01 C0E0       503            push acc
-0C03 7401       503            mov a, #1
-0C05 14         503            dec a
-0C06 12024E     503            lcall ?Set_Cursor_1 ; Select column and row
-0C09 D0E0       503            pop acc
-0C0B C083       504            push dph
-0C0D C082       504            push dpl
-0C0F C0E0       504            push acc
-0C11 900071     504            mov dptr, #sstime_message1
-0C14 120241     504            lcall ?Send_Constant_String
-0C17 D0E0       504            pop acc
-0C19 D082       504            pop dpl
-0C1B D083       504            pop dph
-0C1D C0E0       505            push acc
-0C1F 7401       505            mov a, #1
-0C21 14         505            dec a
-0C22 12024C     505            lcall ?Set_Cursor_2 ; Select column and row
-0C25 D0E0       505            pop acc
-0C27 C083       506            push dph
-0C29 C082       506            push dpl
-0C2B C0E0       506            push acc
-0C2D 900082     506            mov dptr, #sstime_message2
-0C30 120241     506            lcall ?Send_Constant_String
-0C33 D0E0       506            pop acc
-0C35 D082       506            pop dpl
-0C37 D083       506            pop dph
-0C39            507       ;Set_Cursor(2, 11)
-0C39 C005       508       push AR5  ;display the current soak_time
-0C3B AD30       509       mov R5, x
-0C3D 853F30     510       mov x+0, soak_time
-0C40 753100     511            mov x+1, #0
-0C43 753200     512            mov x+2, #0
-0C46 753300     513            mov x+3, #0
-0C49 C0E0       514            push acc
-0C4B 740B       514            mov a, #11
-0C4D 14         514            dec a
-0C4E 12024C     514            lcall ?Set_Cursor_2 ; Select column and row
-0C51 D0E0       514            pop acc
-0C53            515            ;Send_Constant_String(#its_works)
-0C53 1202BC     516       lcall hex2bcd
-0C56 120A37     517       lcall Display_formated_BCD
-0C59 8D30       518       mov x, R5
-0C5B D005       519       pop AR5
-0C5D            520       ;lcall ADC_to_PB ;checks for button press
-0C5D 120DF4     521       lcall rst_check
-0C60 C003       522       push AR3 ;set the paramaters for up/down
-0C62 C004       523       push AR4
-0C64 C005       524       push AR5
-0C66 7B3C       525       mov R3, #0x3C ;min value allowed for soak time !check it please
-0C68 7C78       526       mov R4, #0x78 ;120  ;max value, !check it please, also is the dec? hex?
-0C6A AD3F       527       mov R5, soak_time
-0C6C 120E32     528       lcall up_check
-0C6F 120E7A     529       lcall down_check
-0C72 8D3F       530       mov soak_time, R5
-0C74 D005       531       pop AR5
-0C76 D004       532       pop AR4
-0C78 D003       533       pop AR3  ;am i doing this right?
-0C7A 120EC2     534       lcall s_s_check
-0C7D 120DFF     535       lcall nxt_check
-0C80 020B99     536       ljmp forever ;i believe 
-0C83            537   
-0C83            538   select_soak_temp:
-0C83 B40279     539            cjne a, #2, select_reflow_time ;checks the state
-0C86 C0E0       540            push acc
-0C88 7401       540            mov a, #1
-0C8A 14         540            dec a
-0C8B 12024E     540            lcall ?Set_Cursor_1 ; Select column and row
-0C8E D0E0       540            pop acc
-0C90 C083       541            push dph
-0C92 C082       541            push dpl
-0C94 C0E0       541            push acc
-0C96 900093     541            mov dptr, #sstemp_message1
-0C99 120241     541            lcall ?Send_Constant_String
-0C9C D0E0       541            pop acc
-0C9E D082       541            pop dpl
-0CA0 D083       541            pop dph
-0CA2 C0E0       542            push acc
-0CA4 7401       542            mov a, #1
-0CA6 14         542            dec a
-0CA7 12024C     542            lcall ?Set_Cursor_2 ; Select column and row
-0CAA D0E0       542            pop acc
-0CAC C083       543            push dph
-0CAE C082       543            push dpl
-0CB0 C0E0       543            push acc
-0CB2 9000A4     543            mov dptr, #sstemp_message2
-0CB5 120241     543            lcall ?Send_Constant_String
-0CB8 D0E0       543            pop acc
-0CBA D082       543            pop dpl
-0CBC D083       543            pop dph
-0CBE C0E0       544            push acc
-0CC0 740B       544            mov a, #11
-0CC2 14         544            dec a
-0CC3 12024C     544            lcall ?Set_Cursor_2 ; Select column and row
-0CC6 D0E0       544            pop acc
-0CC8 C005       545       push AR5  ;display current soak temp
-0CCA AD30       546       mov R5, x
-0CCC 854130     547       mov x, soak_temp
-0CCF 1202BC     548       lcall hex2bcd
-0CD2 120A37     549       lcall Display_formated_BCD
-0CD5 8D30       550       mov x, R5
-0CD7 D005       551       pop AR5
-0CD9            552       ;lcall ADC_to_PB ;checks for button press
-0CD9 120DF4     553       lcall rst_check
-0CDC C003       554       push AR3 ;set the paramaters for up/down
-0CDE C004       555       push AR4
-0CE0 C005       556       push AR5
-0CE2 7B96       557       mov R3, #0x96 ;min value allowed !check it please (150 decimal)
-0CE4 7CC8       558       mov R4, #0xC8 ;max value, !check it please, also is the dec? hex? (200 decimal)
-0CE6 AD41       559       mov R5, soak_temp
-0CE8 120E32     560       lcall up_check
-0CEB 120E7A     561       lcall down_check
-0CEE 8D41       562       mov soak_temp, R5
-0CF0 D005       563       pop AR5
-0CF2 D004       564       pop AR4
-0CF4 D003       565       pop AR3  ;am i doing this right?
-0CF6 120EC2     566       lcall s_s_check
-0CF9 120DFF     567       lcall nxt_check
-0CFC 020B99     568       ljmp forever ;i believe 
-0CFF            569   
-0CFF            570   select_reflow_time:
-0CFF B40379     571            cjne a, #3, select_reflow_temp ;checks the state
-0D02 C0E0       572            push acc
-0D04 7401       572            mov a, #1
-0D06 14         572            dec a
-0D07 12024E     572            lcall ?Set_Cursor_1 ; Select column and row
-0D0A D0E0       572            pop acc
-0D0C C083       573            push dph
-0D0E C082       573            push dpl
-0D10 C0E0       573            push acc
-0D12 9000B5     573            mov dptr, #srtime_message1
-0D15 120241     573            lcall ?Send_Constant_String
-0D18 D0E0       573            pop acc
-0D1A D082       573            pop dpl
-0D1C D083       573            pop dph
-0D1E C0E0       574            push acc
-0D20 7401       574            mov a, #1
-0D22 14         574            dec a
-0D23 12024C     574            lcall ?Set_Cursor_2 ; Select column and row
-0D26 D0E0       574            pop acc
-0D28 C083       575            push dph
-0D2A C082       575            push dpl
-0D2C C0E0       575            push acc
-0D2E 9000C6     575            mov dptr, #srtime_message2
-0D31 120241     575            lcall ?Send_Constant_String
-0D34 D0E0       575            pop acc
-0D36 D082       575            pop dpl
-0D38 D083       575            pop dph
-0D3A C0E0       576            push acc
-0D3C 740B       576            mov a, #11
-0D3E 14         576            dec a
-0D3F 12024C     576            lcall ?Set_Cursor_2 ; Select column and row
-0D42 D0E0       576            pop acc
-0D44 C005       577       push AR5  ;display current reflow time
-0D46 AD30       578       mov R5, x
-0D48 854330     579       mov x, reflow_time
-0D4B 1202BC     580       lcall hex2bcd
-0D4E 120A37     581       lcall Display_formated_BCD
-0D51 8D30       582       mov x, R5
-0D53 D005       583       pop AR5
-0D55            584       ;lcall ADC_to_PB ;checks for button press
-0D55 120DF4     585       lcall rst_check
-0D58 C003       586       push AR3 ;set the paramaters for up/down
-0D5A C004       587       push AR4
-0D5C C005       588       push AR5
-0D5E 7B2D       589       mov R3, #0x2D ;45 min value allowed !check it please
-0D60 7C4B       590       mov R4, #0x4B ;75 max value, !check it please, also is the dec? hex?
-0D62 AD43       591       mov R5, reflow_time
-0D64 120E32     592       lcall up_check
-0D67 120E7A     593       lcall down_check
-0D6A 8D43       594       mov reflow_time, R5
-0D6C D005       595       pop AR5
-0D6E D004       596       pop AR4
-0D70 D003       597       pop AR3  ;am i doing this right?
-0D72 120EC2     598       lcall s_s_check
-0D75 120DFF     599       lcall nxt_check
-0D78 020B99     600       ljmp forever ;i believe 
-0D7B            601   
-0D7B            602   select_reflow_temp:
-0D7B            603            ;shouldn't need to check the state
-0D7B C0E0       604            push acc
-0D7D 7401       604            mov a, #1
-0D7F 14         604            dec a
-0D80 12024E     604            lcall ?Set_Cursor_1 ; Select column and row
-0D83 D0E0       604            pop acc
-0D85 C083       605            push dph
-0D87 C082       605            push dpl
-0D89 C0E0       605            push acc
-0D8B 9000D7     605            mov dptr, #srtemp_message1
-0D8E 120241     605            lcall ?Send_Constant_String
-0D91 D0E0       605            pop acc
-0D93 D082       605            pop dpl
-0D95 D083       605            pop dph
-0D97 C0E0       606            push acc
-0D99 7401       606            mov a, #1
-0D9B 14         606            dec a
-0D9C 12024C     606            lcall ?Set_Cursor_2 ; Select column and row
-0D9F D0E0       606            pop acc
-0DA1 C083       607            push dph
-0DA3 C082       607            push dpl
-0DA5 C0E0       607            push acc
-0DA7 9000E8     607            mov dptr, #srtemp_message2
-0DAA 120241     607            lcall ?Send_Constant_String
-0DAD D0E0       607            pop acc
-0DAF D082       607            pop dpl
-0DB1 D083       607            pop dph
-0DB3 C0E0       608            push acc
-0DB5 740B       608            mov a, #11
-0DB7 14         608            dec a
-0DB8 12024C     608            lcall ?Set_Cursor_2 ; Select column and row
-0DBB D0E0       608            pop acc
-0DBD C005       609       push AR5  ;display current reflow temp
-0DBF AD30       610       mov R5, x
-0DC1 854530     611       mov x, reflow_temp
-0DC4 1202BC     612       lcall hex2bcd
-0DC7 120A37     613       lcall Display_formated_BCD
-0DCA 8D30       614       mov x, R5
-0DCC D005       615       pop AR5
-0DCE            616       ;lcall ADC_to_PB ;checks for button press
-0DCE 120DF4     617       lcall rst_check
-0DD1 C003       618       push AR3  ;set the paramaters for up/down
-0DD3 C004       619       push AR4
-0DD5 C005       620       push AR5
-0DD7 7BD9       621       mov R3, #0xD9 ;217 DEC ;min value allowed !check it please
-0DD9 7CFF       622       mov R4, #0xFF ; 255 DEC ;max value, !check it please, also is the dec? hex?
-0DDB AD45       623       mov R5, reflow_temp
-0DDD 120E32     624       lcall up_check
-0DE0 120E7A     625       lcall down_check
-0DE3 8D45       626       mov reflow_temp, R5
-0DE5 D005       627       pop AR5
-0DE7 D004       628       pop AR4
-0DE9 D003       629       pop AR3  ;am i doing this right?
-0DEB 120EC2     630       lcall s_s_check
-0DEE 120DFF     631       lcall nxt_check
-0DF1 020B99     632       ljmp forever ;i believe 
-0DF4            633   
-0DF4            634   ;maybe make these macros :(
-0DF4            635   ;use R3 & R4 & R5 as parameters
-0DF4            636   rst_check:
-0DF4 120AEB     637            lcall ADC_to_PB
-0DF7 A204       638            mov c, RST
-0DF9 5001       639       jnc rst_check_0 ;!could be jc
-0DFB 22         640       ret
-0DFC            641   rst_check_0:
-0DFC 020279     642       ljmp reset_state ;or whatever it's called, wait state of oven fsm
-0DFF            643   
-0DFF            644   nxt_check:
-0DFF 120AEB     645            lcall ADC_to_PB
-0E02 A203       646            mov c, NXT
-0E04 5001       647       jnc next_check_1 
-0E06 22         648            ret
-0E07            649   next_check_1: 
-0E07            650       ;load_x(selecting_state)
-0E07            651       ;load_y(4)
-0E07 853D30     652            mov x, selecting_state
-0E0A 753100     653            mov x+1, #0
-0E0D 753200     654            mov x+2, #0
-0E10 753300     655            mov x+3, #0
-0E13 753404     656            mov y, #0x04
-0E16 753500     657            mov y+1, #0
-0E19 753600     658            mov y+2, #0
-0E1C 753700     659            mov y+3, #0
-0E1F 1203FC     660       lcall x_eq_y
-0E22 D3         661            setb c
-0E23 200507     662            jb mf, next_check_2
-0E26 E53D       663       mov a, selecting_state 
-0E28 3400       664       addc a, #0 ;uh
-0E2A F53D       665       mov selecting_state, a
-0E2C 22         666       ret
-0E2D            667   next_check_2:
-0E2D C3         668            clr c
-0E2E 753D00     669            mov selecting_state, #0 ;can't go above 4 (there are 5 states)
-0E31            670   
-0E31 22         671            ret
-0E32            672   
-0E32            673   up_check: ;R4 max
-0E32 120AEB     674            lcall ADC_to_PB
-0E35 A202       675            mov c, UP
-0E37 5001       676            jnc up_check_1
-0E39 22         677            ret 
-0E3A            678   up_check_1:
-0E3A 8C30       679            mov x, R4
-0E3C 753100     680            mov x+1, #0
-0E3F 753200     681            mov x+2, #0
-0E42 753300     682            mov x+3, #0
-0E45 8D34       683            mov y, R5
-0E47 753500     684            mov y+1, #0
-0E4A 753600     685            mov y+2, #0
-0E4D 753700     686            mov y+3, #0
-0E50 1203E0     687            lcall x_gt_y ;max > value
-0E53 D3         688            setb c
-0E54 300505     689            jnb mf, up_check_2
-0E57 ED         690            mov a, R5
-0E58 3400       691            addc a, #0 ;dec? hex?
-0E5A FD         692            mov R5, a
-0E5B 22         693            ret
-0E5C            694   up_check_2:
-0E5C C3         695            clr c
-0E5D C0E0       696            push acc
-0E5F 740B       696            mov a, #11
-0E61 14         696            dec a
-0E62 12024C     696            lcall ?Set_Cursor_2 ; Select column and row
-0E65 D0E0       696            pop acc
-0E67 C083       697            push dph
-0E69 C082       697            push dpl
-0E6B C0E0       697            push acc
-0E6D 9000F9     697            mov dptr, #too_high_message
-0E70 120241     697            lcall ?Send_Constant_String
-0E73 D0E0       697            pop acc
-0E75 D082       697            pop dpl
-0E77 D083       697            pop dph
-0E79 22         698            ret
-0E7A            699   
-0E7A            700   down_check: ;R3 min
-0E7A 120AEB     701            lcall ADC_to_PB
-0E7D A201       702            mov c, DOWN
-0E7F 5001       703            jnc down_check_1
-0E81 22         704            ret
-0E82            705   down_check_1:
-0E82 8B30       706            mov x, R3
-0E84 753100     707            mov x+1, #0
-0E87 753200     708            mov x+2, #0
-0E8A 753300     709            mov x+3, #0
-0E8D 8D34       710            mov y, R5
-0E8F 753500     711            mov y+1, #0
-0E92 753600     712            mov y+2, #0
-0E95 753700     713            mov y+3, #0
-0E98 1203C4     714            lcall x_lt_y ;min < value
-0E9B D3         715            setb c
-0E9C 300505     716            jnb mf, down_check_2
-0E9F ED         717            mov a, R5
-0EA0 9400       718            subb a, #0 ;dec? hex?
-0EA2 FD         719            mov R5, a
-0EA3 22         720            ret
-0EA4            721   down_check_2:
-0EA4 C3         722            clr c
-0EA5 C0E0       723            push acc
-0EA7 740B       723            mov a, #11
-0EA9 14         723            dec a
-0EAA 12024C     723            lcall ?Set_Cursor_2 ; Select column and row
-0EAD D0E0       723            pop acc
-0EAF C083       724            push dph
-0EB1 C082       724            push dpl
-0EB3 C0E0       724            push acc
-0EB5 900103     724            mov dptr, #too_low_message
-0EB8 120241     724            lcall ?Send_Constant_String
-0EBB D0E0       724            pop acc
-0EBD D082       724            pop dpl
-0EBF D083       724            pop dph
-0EC1 22         725            ret
-0EC2            726   
-0EC2            727   s_s_check:
-0EC2 120AEB     728            lcall ADC_to_PB
-0EC5 A200       729            mov c, S_S
-0EC7 5001       730            jnc s_s_check_done ;!could be jb
-0EC9 22         731            ret
-0ECA            732   s_s_check_done:
-0ECA 020763     733            ljmp state0 ;or whatever it's called, 1st state of oven FSM
-0ECD            734   
-0ECD            735   END
+0008            107   oven_flag: dbit 1
+0009            108   
+0009            109   ;TODO: check if one is enough
+0030            110   DSEG at 30H
+0030            111   x: ds 4
+0034            112   y: ds 4
+0038            113   BCD: ds 5
+003D            114   selecting_state: ds 1
+003E            115   oven_state: ds 1
+003F            116   soak_time: ds 1
+0040            117   soak_temp: ds 1
+0041            118   reflow_time: ds 1
+0042            119   reflow_temp: ds 2
+0044            120   Count1ms:     ds 2 
+0046            121   sec: ds 1
+0047            122   temp: ds 1
+0048            123   pwm_counter:  ds 1 ; Free running counter 0, 1, 2, ..., 100, 0
+0049            124   pwm:          ds 1 ; pwm percentage
+004A            125   seconds:      ds 1 ; a seconds counter attached to Timer 2 ISR
+004B            126   
+                574   $LIST
+                130       $LIST
+0A7F            132   
+0A7F            133   CSEG
+0A7F            134   Init_All:
+0A7F            135            ; Configure all the pins for biderectional I/O
+0A7F 75AC00     136            mov     P3M1, #0x00
+0A82 75AD00     137            mov     P3M2, #0x00
+0A85 75B300     138            mov     P1M1, #0x00
+0A88 75B400     139            mov     P1M2, #0x00
+0A8B 75B100     140            mov     P0M1, #0x00
+0A8E 75B200     141            mov     P0M2, #0x00
+0A91            142            
+0A91 438E10     143            orl     CKCON, #0x10 ; CLK is the input for timer 1
+0A94 438780     144            orl     PCON, #0x80 ; Bit SMOD=1, double baud rate
+0A97 759852     145            mov     SCON, #0x52
+0A9A 53C4DF     146            anl     T3CON, #0b11011111
+0A9D 53890F     147            anl     TMOD, #0x0F ; Clear the configuration bits for timer 1
+0AA0 438920     148            orl     TMOD, #0x20 ; Timer 1 Mode 2
+0AA3            149            
+0AA3            150            ; Using timer 0 for delay functions.  Initialize here:
+0AA3 C28C       151            clr     TR0 ; Stop timer 0
+0AA5 438E08     152            orl     CKCON,#0x08 ; CLK is the input for timer 0
+0AA8 5389F0     153            anl     TMOD,#0xF0 ; Clear the configuration bits for timer 0
+0AAB 438901     154            orl     TMOD,#0x01 ; Timer 0 in Mode 1: 16-bit timer
+0AAE            155            
+0AAE            156            ; Initialize and start the ADC:
+0AAE            157            
+0AAE            158            ; AIN0 is connected to P1.7.  Configure P1.7 as input.
+0AAE 43B380     159            orl     P1M1, #0b10000000
+0AB1 53B47F     160            anl     P1M2, #0b01111111
+0AB4            161            
+0AB4            162            ; AINDIDS select if some pins are analog inputs or digital I/O:
+0AB4 75F600     163            mov AINDIDS, #0x00 ; Disable all analog inputs
+0AB7 43F601     164            orl AINDIDS, #0b00000001 ; Using AIN0
+0ABA 43E101     165            orl ADCCON1, #0x01 ; Enable ADC
+0ABD            166   
+0ABD            167            ; timer 2 ?? 
+0ABD 120AF5     168            lcall Timer2_Init
+0AC0 D2AF       169            setb EA
+0AC2            170   
+0AC2            171            
+0AC2 22         172            ret
+0AC3            173            
+0AC3            174   wait_1ms:
+0AC3 C28C       175            clr     TR0 ; Stop timer 0
+0AC5 C28D       176            clr     TF0 ; Clear overflow flag
+0AC7 758CBF     177            mov     TH0, #high(TIMER0_RELOAD_1MS)
+0ACA 758A28     178            mov     TL0,#low(TIMER0_RELOAD_1MS)
+0ACD D28C       179            setb TR0
+0ACF 308DFD     180            jnb     TF0, $ ; Wait for overflow
+0AD2 22         181            ret
+0AD3            182   
+0AD3            183   ; Wait the number of miliseconds in R2
+0AD3            184   waitms:
+0AD3 120AC3     185            lcall wait_1ms
+0AD6 DAFB       186            djnz R2, waitms
+0AD8 22         187            ret
+0AD9            188   
+0AD9            189   ;set cursor before, also might have to change format     
+0AD9            190   Display_formated_BCD:  
+0AD9            191       ;Display_BCD(bcd+4) 
+0AD9            192       ;Display_BCD(bcd+3) 
+0AD9 C000       193            push ar0
+0ADB A83A       193            mov r0, bcd+2
+0ADD 120253     193            lcall ?Display_BCD
+0AE0 D000       193            pop ar0 
+0AE2 C000       194            push ar0
+0AE4 A839       194            mov r0, bcd+1
+0AE6 120253     194            lcall ?Display_BCD
+0AE9 D000       194            pop ar0 
+0AEB C000       195            push ar0
+0AED A838       195            mov r0, bcd+0
+0AEF 120253     195            lcall ?Display_BCD
+0AF2 D000       195            pop ar0  
+0AF4 22         196       ret
+0AF5            197   
+0AF5            198   Timer2_Init:
+0AF5 75C800     199            mov T2CON, #0 ; Stop timer/counter.  Autoreload mode.
+0AF8 75CD78     200            mov TH2, #high(TIMER2_RELOAD)
+0AFB 75CC90     201            mov TL2, #low(TIMER2_RELOAD)
+0AFE            202            ; Set the reload value
+0AFE 75C980     203            mov T2MOD, #1000_0000b 
+0B01            204            ;orl T2MOD, #0x80 ; Enable timer 2 autoreload this was it before
+0B01 75CB78     205            mov RCMP2H, #high(TIMER2_RELOAD)
+0B04 75CA90     206            mov RCMP2L, #low(TIMER2_RELOAD)
+0B07            207            ; Init One millisecond interrupt counter.  It is a 16-bit variable made with two 8-bit parts
+0B07 E4         208            clr a
+0B08 F544       209            mov Count1ms+0, a
+0B0A F545       210            mov Count1ms+1, a
+0B0C 754600     211            mov sec, #0
+0B0F C206       212            clr seconds_flag
+0B11            213            ; Enable the timer and interrupts
+0B11 439B80     214            orl EIE, #0x80 ; Enable timer 2 interrupt ET2=1
+0B14 D2CA       215       setb TR2  ; Enable timer 2
+0B16 22         216            ret
+0B17            217   ;---------------------------------;
+0B17            218   ; ISR for timer 2                 ;
+0B17            219   ;---------------------------------;
+0B17            220   Timer2_ISR:
+0B17 C2CF       221            clr TF2  ; Timer 2 doesn't clear TF2 automatically. Do it in the ISR.  It is bit addressable.
+0B19            222            
+0B19            223            ; The two registers used in the ISR must be saved in the stack
+0B19 C0E0       224            push acc
+0B1B C0D0       225            push psw
+0B1D C034       226            push y+0
+0B1F C035       227            push y+1
+0B21 C036       228            push y+2
+0B23 C037       229            push y+3
+0B25 C030       230            push x+0
+0B27 C031       231            push x+1
+0B29 C032       232            push x+2
+0B2B C033       233            push x+3
+0B2D            234            
+0B2D            235            ; Increment the 16-bit one mili second counter
+0B2D 0544       236            inc Count1ms+0    ; Increment the low 8-bits first
+0B2F E544       237            mov a, Count1ms+0 ; If the low 8-bits overflow, then increment high 8-bits
+0B31 7002       238            jnz Inc_Done_randys_version
+0B33 0545       239            inc Count1ms+1
+0B35            240   
+0B35            241   Inc_Done_randys_version:
+0B35            242   
+0B35            243            ; CODE TO MAKE THE PWM WORK
+0B35 C3         244            clr c
+0B36 E549       245            mov a, pwm
+0B38 9544       246            subb a, Count1ms+0
+0B3A            247            ;jnc pwm_output
+0B3A            248            ;clr c 
+0B3A            249            ;mov a, x+1
+0B3A            250            ;subb a, Count1ms+1 ; If pwm_counter <= pwm then c=1
+0B3A            251   pwm_output:
+0B3A B3         252            cpl c
+0B3B 9290       253            mov PWM_OUT, c
+0B3D            254   
+0B3D            255            ;check if 1000 ms has passed 
+0B3D E544       256            mov a, Count1ms+0
+0B3F B46416     257            cjne a, #low(100), Time_increment_done ; Warning: this instruction changes the carry flag!
+0B42            258            ;mov a, Count1ms+1
+0B42            259            ;cjne a, #high(1000), Time_increment_done
+0B42            260   
+0B42            261            ; if1000 ms has passed 
+0B42            262   
+0B42 E4         263            clr A
+0B43 F544       264            mov Count1ms+0, A
+0B45 F545       265            mov Count1ms+1, A
+0B47            266   
+0B47 E54A       267            mov a, seconds
+0B49 A208       268            mov c, oven_flag
+0B4B 3400       269            addc a, #0 ; It is super easy to keep a seconds count here
+0B4D F54A       270            mov seconds, a
+0B4F D206       271            setb seconds_flag
+0B51            272   
+0B51            273            ;increment second flag 
+0B51            274   
+0B51 E546       275            mov a, sec
+0B53 2401       276            add a, #1
+0B55 D4         277            da A
+0B56 F546       278            mov sec, A
+0B58            279   
+0B58            280   
+0B58            281   ;Inc_Done:
+0B58            282            ; Check if second has passed
+0B58            283   ;        mov a, Count1ms+0
+0B58            284   ;        cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
+0B58            285   ;        mov a, Count1ms+1
+0B58            286   ;        cjne a, #high(1000), Time_increment_done
+0B58            287            
+0B58            288            ; 1000 milliseconds have passed.  Set a flag so the main program knows
+0B58            289   ;        setb seconds_flag ; Let the main program know a second had passed
+0B58            290            ;cpl TR0 ; Enable/disable timer/counter 0. This line creates a beep-silence-beep-silence sound.
+0B58            291            ; Reset to zero the milli-seconds counter, it is a 16-bit variable
+0B58            292   ;        clr a
+0B58            293   ;        mov Count1ms+0, a
+0B58            294   ;        mov Count1ms+1, a
+0B58            295            ; Increment the time only when state flag is on
+0B58            296            ;jnb state, Time_increment_done
+0B58            297            
+0B58            298   ;        mov a, sec
+0B58            299   ;        add a, #0x01
+0B58            300   ;        da a
+0B58            301   ;        mov sec, a
+0B58            302   ;        
+0B58            303   ;        cjne a, #0x60, Time_increment_done
+0B58            304   
+0B58            305                    
+0B58            306   Time_increment_done:
+0B58 D033       307            pop x+3
+0B5A D032       308            pop x+2
+0B5C D031       309            pop x+1
+0B5E D030       310            pop x+0
+0B60 D037       311            pop y+3
+0B62 D036       312            pop y+2
+0B64 D035       313            pop y+1
+0B66 D034       314            pop y+0
+0B68 D0D0       315            pop psw
+0B6A D0E0       316            pop acc
+0B6C 32         317            reti
+0B6D            318   
+0B6D            319   
+0B6D            320   
+0B6D            321   
+0B6D            322   
+0B6D            323   
+0B6D            324   
+0B6D            325   ADC_to_PB:
+0B6D C0E0       326            push acc
+0B6F 53E8F0     327            anl ADCCON0, #0xF0
+0B72 43E800     328            orl ADCCON0, #0x00 ; Select AIN0
+0B75            329            
+0B75 C2EF       330            clr ADCF
+0B77 D2EE       331            setb ADCS   ; ADC start trigger signal
+0B79 30EFFD     332       jnb ADCF, $ ; Wait for conversion complete
+0B7C            333   
+0B7C D204       334            setb RST;PB7
+0B7E D203       335            setb NXT;PB6
+0B80 D202       336            setb UP;PB5
+0B82 D201       337            setb DOWN;PB4
+0B84 D200       338            setb S_S;PB3
+0B86            339            ;setb PB2
+0B86            340            ;setb PB1
+0B86            341            ;setb PB0
+0B86            342            
+0B86            343            ; Check PB7
+0B86            344   ;ADC_to_PB_L7:
+0B86            345   ;        clr c
+0B86            346   ;        mov a, ADCRH
+0B86            347   ;        subb a, #0xf0
+0B86            348   ;        jc ADC_to_PB_L6
+0B86            349   ;        clr RST;PB7
+0B86            350   ;        ret
+0B86            351   ;
+0B86            352   ;        ; Check PB6
+0B86            353   ;ADC_to_PB_L6:
+0B86            354   ;        clr c
+0B86            355   ;        mov a, ADCRH
+0B86            356   ;        subb a, #0xd0
+0B86            357   ;        jc ADC_to_PB_L5
+0B86            358   ;        clr NXT;PB6
+0B86            359   ;        ret
+0B86            360   
+0B86            361            ; Check PB5
+0B86            362   ADC_to_PB_L5:
+0B86 C3         363            clr c
+0B87 E5C3       364            mov a, ADCRH
+0B89 94B0       365            subb a, #0xb0
+0B8B 4005       366            jc ADC_to_PB_L4
+0B8D C204       367            clr RST;PB5
+0B8F D0E0       368            pop acc
+0B91 22         369            ret
+0B92            370   
+0B92            371            ; Check PB4
+0B92            372   ADC_to_PB_L4:
+0B92 C3         373            clr c
+0B93 E5C3       374            mov a, ADCRH
+0B95 9490       375            subb a, #0x90
+0B97 4005       376            jc ADC_to_PB_L3
+0B99 C203       377            clr NXT;PB4
+0B9B D0E0       378            pop acc
+0B9D 22         379            ret
+0B9E            380   
+0B9E            381            ; Check PB3
+0B9E            382   ADC_to_PB_L3:
+0B9E C3         383            clr c
+0B9F E5C3       384            mov a, ADCRH
+0BA1 9470       385            subb a, #0x70
+0BA3 4005       386            jc ADC_to_PB_L2
+0BA5 C202       387            clr UP;PB3
+0BA7 D0E0       388            pop acc
+0BA9 22         389            ret
+0BAA            390   
+0BAA            391            ; Check PB2
+0BAA            392   ADC_to_PB_L2:
+0BAA C3         393            clr c
+0BAB E5C3       394            mov a, ADCRH
+0BAD 9450       395            subb a, #0x50
+0BAF 4005       396            jc ADC_to_PB_L1
+0BB1 C201       397            clr DOWN
+0BB3 D0E0       398            pop acc
+0BB5 22         399            ret
+0BB6            400   
+0BB6            401            ; Check PB1
+0BB6            402   ADC_to_PB_L1:
+0BB6 C3         403            clr c
+0BB7 E5C3       404            mov a, ADCRH
+0BB9 9430       405            subb a, #0x30
+0BBB 4005       406            jc ADC_to_PB_L0
+0BBD C200       407            clr S_S
+0BBF D0E0       408            pop acc
+0BC1 22         409            ret
+0BC2            410   
+0BC2            411            ; Check PB0
+0BC2            412   ADC_to_PB_L0:
+0BC2 C3         413            clr c
+0BC3 E5C3       414            mov a, ADCRH
+0BC5 9410       415            subb a, #0x10
+0BC7 4003       416            jc ADC_to_PB_Done
+0BC9            417            ;clr PB0
+0BC9 D0E0       418            pop acc
+0BCB 22         419            ret
+0BCC            420            
+0BCC            421   ADC_to_PB_Done:
+0BCC            422            ; No pusbutton pressed  
+0BCC D0E0       423            pop acc
+0BCE 22         424            ret
+0BCF            425            
+0BCF            426   main:
+0BCF 75817F     427            mov sp, #0x7f
+0BD2 12052C     428            lcall Temp_Init_All
+0BD5 120A7F     429            lcall Init_All
+0BD8 12020E     430       lcall LCD_4BIT
+0BDB            431       
+0BDB 120269     432       lcall state_init ;From State_Machine.inc
+0BDE            433       
+0BDE            434       ; initial messages in LCD
+0BDE C0E0       435            push acc
+0BE0 7401       435            mov a, #1
+0BE2 14         435            dec a
+0BE3 12024E     435            lcall ?Set_Cursor_1 ; Select column and row
+0BE6 D0E0       435            pop acc
+0BE8 C083       436            push dph
+0BEA C082       436            push dpl
+0BEC C0E0       436            push acc
+0BEE 90002E     436            mov dptr, #Title
+0BF1 120241     436            lcall ?Send_Constant_String
+0BF4 D0E0       436            pop acc
+0BF6 D082       436            pop dpl
+0BF8 D083       436            pop dph
+0BFA C0E0       437            push acc
+0BFC 7401       437            mov a, #1
+0BFE 14         437            dec a
+0BFF 12024C     437            lcall ?Set_Cursor_2 ; Select column and row
+0C02 D0E0       437            pop acc
+0C04 C083       438            push dph
+0C06 C082       438            push dpl
+0C08 C0E0       438            push acc
+0C0A 90003E     438            mov dptr, #blank
+0C0D 120241     438            lcall ?Send_Constant_String
+0C10 D0E0       438            pop acc
+0C12 D082       438            pop dpl
+0C14 D083       438            pop dph
+0C16            439   
+0C16 7AFA       440            mov R2, #250
+0C18 120AD3     441            lcall waitms
+0C1B            442            
+0C1B            443   Forever:
+0C1B            444            ; Wait 50 ms between readings
+0C1B 7A32       445            mov R2, #50
+0C1D 120AD3     446            lcall waitms
+0C20            447   
+0C20            448            ; output? 
+0C20 300604     449            jnb seconds_flag, no_second
+0C23 C206       450            clr seconds_flag
+0C25 B295       451            cpl P1.5
+0C27            452   
+0C27            453   no_second:
+0C27            454   
+0C27 7A32       455            mov R2, #50
+0C29 120AD3     456            lcall waitms
+0C2C            457   
+0C2C 020C2F     458            ljmp FSM_select
+0C2F            459   
+0C2F            460            ;Set_Cursor(2, 11)
+0C2F            461            ;mov r0, #80
+0C2F            462            ;mov x+0, r0
+0C2F            463            ;mov x+1, #0 
+0C2F            464            ;mov x+2, #0
+0C2F            465            ;mov x+3, #0
+0C2F            466            ;lcall hex2bcd
+0C2F            467            ;lcall Display_formated_BCD
+0C2F            468            
+0C2F            469            ;check if reaches forever
+0C2F            470            ;Set_Cursor(1, 1)
+0C2F            471            ;Send_Constant_String(#forever_message)
+0C2F            472            ;mov R2, #250
+0C2F            473            ;lcall waitms
+0C2F            474            ;ljmp FSM_select
+0C2F            475   
+0C2F            476   ;no_second:
+0C2F            477   ;        ljmp Forever
+0C2F            478   
+0C2F            479   ;for testing since there's no other fsm right now
+0C2F            480   
+0C2F            481   
+0C2F            482   ;begin select FSM
+0C2F            483   FSM_select:
+0C2F E53D       484            mov a, selecting_state
+0C31            485   
+0C31            486   select_wait:
+0C31 B4004C     487            cjne a, #0, select_soak_time ;checks the state
+0C34 C0E0       488            push acc
+0C36 7401       488            mov a, #1
+0C38 14         488            dec a
+0C39 12024E     488            lcall ?Set_Cursor_1 ; Select column and row
+0C3C D0E0       488            pop acc
+0C3E C083       489            push dph
+0C40 C082       489            push dpl
+0C42 C0E0       489            push acc
+0C44 90004F     489            mov dptr, #swait_message1
+0C47 120241     489            lcall ?Send_Constant_String
+0C4A D0E0       489            pop acc
+0C4C D082       489            pop dpl
+0C4E D083       489            pop dph
+0C50 C0E0       490            push acc
+0C52 7401       490            mov a, #1
+0C54 14         490            dec a
+0C55 12024C     490            lcall ?Set_Cursor_2 ; Select column and row
+0C58 D0E0       490            pop acc
+0C5A C083       491            push dph
+0C5C C082       491            push dpl
+0C5E C0E0       491            push acc
+0C60 900060     491            mov dptr, #swait_message2
+0C63 120241     491            lcall ?Send_Constant_String
+0C66 D0E0       491            pop acc
+0C68 D082       491            pop dpl
+0C6A D083       491            pop dph
+0C6C 7AFA       492            mov R2, #250
+0C6E 120AD3     493            lcall waitms
+0C71            494       ;lcall ADC_to_PB ;checks for button press
+0C71 120E8F     495       lcall rst_check
+0C74 120E9A     496       lcall nxt_check
+0C77 120F5D     497       lcall s_s_check
+0C7A 020C1B     498       ljmp forever ;i believe 
+0C7D            499   
+0C7D            500   select_soak_temp_ah:
+0C7D 020D05     501            ljmp select_soak_temp
+0C80            502   
+0C80            503   select_soak_time:
+0C80 B401FA     504            cjne a, #1, select_soak_temp_ah ;checks the state
+0C83 C0E0       505            push acc
+0C85 7401       505            mov a, #1
+0C87 14         505            dec a
+0C88 12024E     505            lcall ?Set_Cursor_1 ; Select column and row
+0C8B D0E0       505            pop acc
+0C8D C083       506            push dph
+0C8F C082       506            push dpl
+0C91 C0E0       506            push acc
+0C93 900071     506            mov dptr, #sstime_message1
+0C96 120241     506            lcall ?Send_Constant_String
+0C99 D0E0       506            pop acc
+0C9B D082       506            pop dpl
+0C9D D083       506            pop dph
+0C9F C0E0       507            push acc
+0CA1 7401       507            mov a, #1
+0CA3 14         507            dec a
+0CA4 12024C     507            lcall ?Set_Cursor_2 ; Select column and row
+0CA7 D0E0       507            pop acc
+0CA9 C083       508            push dph
+0CAB C082       508            push dpl
+0CAD C0E0       508            push acc
+0CAF 900082     508            mov dptr, #sstime_message2
+0CB2 120241     508            lcall ?Send_Constant_String
+0CB5 D0E0       508            pop acc
+0CB7 D082       508            pop dpl
+0CB9 D083       508            pop dph
+0CBB            509       ;Set_Cursor(2, 11)
+0CBB C005       510       push AR5  ;display the current soak_time
+0CBD AD30       511       mov R5, x
+0CBF 853F30     512       mov x+0, soak_time
+0CC2 753100     513            mov x+1, #0
+0CC5 753200     514            mov x+2, #0
+0CC8 753300     515            mov x+3, #0
+0CCB C0E0       516            push acc
+0CCD 740B       516            mov a, #11
+0CCF 14         516            dec a
+0CD0 12024C     516            lcall ?Set_Cursor_2 ; Select column and row
+0CD3 D0E0       516            pop acc
+0CD5            517            ;Send_Constant_String(#its_works)
+0CD5 1202BC     518       lcall hex2bcd
+0CD8 120AD9     519       lcall Display_formated_BCD
+0CDB 8D30       520       mov x, R5
+0CDD D005       521       pop AR5
+0CDF            522       ;lcall ADC_to_PB ;checks for button press
+0CDF 120E8F     523       lcall rst_check
+0CE2 C003       524       push AR3 ;set the paramaters for up/down
+0CE4 C004       525       push AR4
+0CE6 C005       526       push AR5
+0CE8 7B3C       527       mov R3, #0x3C ;min value allowed for soak time !check it please
+0CEA 7C78       528       mov R4, #0x78 ;120  ;max value, !check it please, also is the dec? hex?
+0CEC AD3F       529       mov R5, soak_time
+0CEE 120ECD     530       lcall up_check
+0CF1 120F15     531       lcall down_check
+0CF4 8D3F       532       mov soak_time, R5
+0CF6 D005       533       pop AR5
+0CF8 D004       534       pop AR4
+0CFA D003       535       pop AR3  ;am i doing this right?
+0CFC 120F5D     536       lcall s_s_check
+0CFF 120E9A     537       lcall nxt_check
+0D02 020C1B     538       ljmp forever ;i believe 
+0D05            539   
+0D05            540   select_soak_temp:
+0D05 B40203     541            cjne a, #2, $+6 ;checks the state
+0D08 020D0E     542            ljmp $+6
+0D0B 020D9A     543            ljmp select_reflow_time
+0D0E C0E0       544            push acc
+0D10 7401       544            mov a, #1
+0D12 14         544            dec a
+0D13 12024E     544            lcall ?Set_Cursor_1 ; Select column and row
+0D16 D0E0       544            pop acc
+0D18 C083       545            push dph
+0D1A C082       545            push dpl
+0D1C C0E0       545            push acc
+0D1E 900093     545            mov dptr, #sstemp_message1
+0D21 120241     545            lcall ?Send_Constant_String
+0D24 D0E0       545            pop acc
+0D26 D082       545            pop dpl
+0D28 D083       545            pop dph
+0D2A C0E0       546            push acc
+0D2C 7401       546            mov a, #1
+0D2E 14         546            dec a
+0D2F 12024C     546            lcall ?Set_Cursor_2 ; Select column and row
+0D32 D0E0       546            pop acc
+0D34 C083       547            push dph
+0D36 C082       547            push dpl
+0D38 C0E0       547            push acc
+0D3A 9000A4     547            mov dptr, #sstemp_message2
+0D3D 120241     547            lcall ?Send_Constant_String
+0D40 D0E0       547            pop acc
+0D42 D082       547            pop dpl
+0D44 D083       547            pop dph
+0D46 C0E0       548            push acc
+0D48 740B       548            mov a, #11
+0D4A 14         548            dec a
+0D4B 12024C     548            lcall ?Set_Cursor_2 ; Select column and row
+0D4E D0E0       548            pop acc
+0D50 C005       549       push AR5  ;display current soak temp
+0D52 C030       550            push x+0
+0D54 C031       550            push x+1
+0D56 C032       550            push x+2
+0D58 C033       550            push x+3
+0D5A 854030     551            mov x+0, soak_temp+0
+0D5D 854131     552            mov x+1, soak_temp+1
+0D60 753200     553            mov x+2, #0
+0D63 753300     554            mov x+3, #0
+0D66 1202BC     555       lcall hex2bcd
+0D69 120AD9     556       lcall Display_formated_BCD
+0D6C            557       ;mov x, R5
+0D6C D030       558            pop x+0
+0D6E D031       558            pop x+1
+0D70 D032       558            pop x+2
+0D72 D033       558            pop x+3
+0D74            559       ;lcall ADC_to_PB ;checks for button press
+0D74 120E8F     560       lcall rst_check
+0D77 C003       561       push AR3 ;set the paramaters for up/down
+0D79 C004       562       push AR4
+0D7B C005       563       push AR5
+0D7D 7B96       564       mov R3, #0x96 ;min value allowed !check it please (150 decimal)
+0D7F 7CC8       565       mov R4, #0xC8 ;max value, !check it please, also is the dec? hex? (200 decimal)
+0D81 AD40       566       mov R5, soak_temp
+0D83 120ECD     567       lcall up_check
+0D86 120F15     568       lcall down_check
+0D89 8D40       569       mov soak_temp, R5
+0D8B D005       570       pop AR5
+0D8D D004       571       pop AR4
+0D8F D003       572       pop AR3  ;am i doing this right?
+0D91 120F5D     573       lcall s_s_check
+0D94 120E9A     574       lcall nxt_check
+0D97 020C1B     575       ljmp forever ;i believe 
+0D9A            576   
+0D9A            577   select_reflow_time:
+0D9A B40379     578            cjne a, #3, select_reflow_temp ;checks the state
+0D9D C0E0       579            push acc
+0D9F 7401       579            mov a, #1
+0DA1 14         579            dec a
+0DA2 12024E     579            lcall ?Set_Cursor_1 ; Select column and row
+0DA5 D0E0       579            pop acc
+0DA7 C083       580            push dph
+0DA9 C082       580            push dpl
+0DAB C0E0       580            push acc
+0DAD 9000B5     580            mov dptr, #srtime_message1
+0DB0 120241     580            lcall ?Send_Constant_String
+0DB3 D0E0       580            pop acc
+0DB5 D082       580            pop dpl
+0DB7 D083       580            pop dph
+0DB9 C0E0       581            push acc
+0DBB 7401       581            mov a, #1
+0DBD 14         581            dec a
+0DBE 12024C     581            lcall ?Set_Cursor_2 ; Select column and row
+0DC1 D0E0       581            pop acc
+0DC3 C083       582            push dph
+0DC5 C082       582            push dpl
+0DC7 C0E0       582            push acc
+0DC9 9000C6     582            mov dptr, #srtime_message2
+0DCC 120241     582            lcall ?Send_Constant_String
+0DCF D0E0       582            pop acc
+0DD1 D082       582            pop dpl
+0DD3 D083       582            pop dph
+0DD5 C0E0       583            push acc
+0DD7 740B       583            mov a, #11
+0DD9 14         583            dec a
+0DDA 12024C     583            lcall ?Set_Cursor_2 ; Select column and row
+0DDD D0E0       583            pop acc
+0DDF C005       584       push AR5  ;display current reflow time
+0DE1 AD30       585       mov R5, x
+0DE3 854130     586       mov x, reflow_time
+0DE6 1202BC     587       lcall hex2bcd
+0DE9 120AD9     588       lcall Display_formated_BCD
+0DEC 8D30       589       mov x, R5
+0DEE D005       590       pop AR5
+0DF0            591       ;lcall ADC_to_PB ;checks for button press
+0DF0 120E8F     592       lcall rst_check
+0DF3 C003       593       push AR3 ;set the paramaters for up/down
+0DF5 C004       594       push AR4
+0DF7 C005       595       push AR5
+0DF9 7B2D       596       mov R3, #0x2D ;45 min value allowed !check it please
+0DFB 7C4B       597       mov R4, #0x4B ;75 max value, !check it please, also is the dec? hex?
+0DFD AD41       598       mov R5, reflow_time
+0DFF 120ECD     599       lcall up_check
+0E02 120F15     600       lcall down_check
+0E05 8D41       601       mov reflow_time, R5
+0E07 D005       602       pop AR5
+0E09 D004       603       pop AR4
+0E0B D003       604       pop AR3  ;am i doing this right?
+0E0D 120F5D     605       lcall s_s_check
+0E10 120E9A     606       lcall nxt_check
+0E13 020C1B     607       ljmp forever ;i believe 
+0E16            608   
+0E16            609   select_reflow_temp:
+0E16            610            ;shouldn't need to check the state
+0E16 C0E0       611            push acc
+0E18 7401       611            mov a, #1
+0E1A 14         611            dec a
+0E1B 12024E     611            lcall ?Set_Cursor_1 ; Select column and row
+0E1E D0E0       611            pop acc
+0E20 C083       612            push dph
+0E22 C082       612            push dpl
+0E24 C0E0       612            push acc
+0E26 9000D7     612            mov dptr, #srtemp_message1
+0E29 120241     612            lcall ?Send_Constant_String
+0E2C D0E0       612            pop acc
+0E2E D082       612            pop dpl
+0E30 D083       612            pop dph
+0E32 C0E0       613            push acc
+0E34 7401       613            mov a, #1
+0E36 14         613            dec a
+0E37 12024C     613            lcall ?Set_Cursor_2 ; Select column and row
+0E3A D0E0       613            pop acc
+0E3C C083       614            push dph
+0E3E C082       614            push dpl
+0E40 C0E0       614            push acc
+0E42 9000E8     614            mov dptr, #srtemp_message2
+0E45 120241     614            lcall ?Send_Constant_String
+0E48 D0E0       614            pop acc
+0E4A D082       614            pop dpl
+0E4C D083       614            pop dph
+0E4E C0E0       615            push acc
+0E50 740B       615            mov a, #11
+0E52 14         615            dec a
+0E53 12024C     615            lcall ?Set_Cursor_2 ; Select column and row
+0E56 D0E0       615            pop acc
+0E58 C005       616       push AR5  ;display current reflow temp
+0E5A AD30       617       mov R5, x
+0E5C 854230     618       mov x, reflow_temp
+0E5F 1202BC     619       lcall hex2bcd
+0E62 120AD9     620       lcall Display_formated_BCD
+0E65 8D30       621       mov x, R5
+0E67 D005       622       pop AR5
+0E69            623       ;lcall ADC_to_PB ;checks for button press
+0E69 120E8F     624       lcall rst_check
+0E6C C003       625       push AR3  ;set the paramaters for up/down
+0E6E C004       626       push AR4
+0E70 C005       627       push AR5
+0E72 7BD9       628       mov R3, #0xD9 ;217 DEC ;min value allowed !check it please
+0E74 7CFF       629       mov R4, #0xFF ; 255 DEC ;max value, !check it please, also is the dec? hex?
+0E76 AD42       630       mov R5, reflow_temp
+0E78 120ECD     631       lcall up_check
+0E7B 120F15     632       lcall down_check
+0E7E 8D42       633       mov reflow_temp, R5
+0E80 D005       634       pop AR5
+0E82 D004       635       pop AR4
+0E84 D003       636       pop AR3  ;am i doing this right?
+0E86 120F5D     637       lcall s_s_check
+0E89 120E9A     638       lcall nxt_check
+0E8C 020C1B     639       ljmp forever ;i believe 
+0E8F            640   
+0E8F            641   ;maybe make these macros :(
+0E8F            642   ;use R3 & R4 & R5 as parameters
+0E8F            643   rst_check:
+0E8F 120B6D     644            lcall ADC_to_PB
+0E92 A204       645            mov c, RST
+0E94 5001       646       jnc rst_check_0 ;!could be jc
+0E96 22         647       ret
+0E97            648   rst_check_0:
+0E97 020279     649       ljmp reset_state ;or whatever it's called, wait state of oven fsm
+0E9A            650   
+0E9A            651   nxt_check:
+0E9A 120B6D     652            lcall ADC_to_PB
+0E9D A203       653            mov c, NXT
+0E9F 5001       654       jnc next_check_1 
+0EA1 22         655            ret
+0EA2            656   next_check_1: 
+0EA2            657       ;load_x(selecting_state)
+0EA2            658       ;load_y(4)
+0EA2 853D30     659            mov x, selecting_state
+0EA5 753100     660            mov x+1, #0
+0EA8 753200     661            mov x+2, #0
+0EAB 753300     662            mov x+3, #0
+0EAE 753404     663            mov y, #0x04
+0EB1 753500     664            mov y+1, #0
+0EB4 753600     665            mov y+2, #0
+0EB7 753700     666            mov y+3, #0
+0EBA 1203FC     667       lcall x_eq_y
+0EBD D3         668            setb c
+0EBE 200507     669            jb mf, next_check_2
+0EC1 E53D       670       mov a, selecting_state 
+0EC3 3400       671       addc a, #0 ;uh
+0EC5 F53D       672       mov selecting_state, a
+0EC7 22         673       ret
+0EC8            674   next_check_2:
+0EC8 C3         675            clr c
+0EC9 753D00     676            mov selecting_state, #0 ;can't go above 4 (there are 5 states)
+0ECC            677   
+0ECC 22         678            ret
+0ECD            679   
+0ECD            680   up_check: ;R4 max
+0ECD 120B6D     681            lcall ADC_to_PB
+0ED0 A202       682            mov c, UP
+0ED2 5001       683            jnc up_check_1
+0ED4 22         684            ret 
+0ED5            685   up_check_1:
+0ED5 8C30       686            mov x, R4
+0ED7 753100     687            mov x+1, #0
+0EDA 753200     688            mov x+2, #0
+0EDD 753300     689            mov x+3, #0
+0EE0 8D34       690            mov y, R5
+0EE2 753500     691            mov y+1, #0
+0EE5 753600     692            mov y+2, #0
+0EE8 753700     693            mov y+3, #0
+0EEB 1203E0     694            lcall x_gt_y ;max > value
+0EEE D3         695            setb c
+0EEF 300505     696            jnb mf, up_check_2
+0EF2 ED         697            mov a, R5
+0EF3 3400       698            addc a, #0 ;dec? hex?
+0EF5 FD         699            mov R5, a
+0EF6 22         700            ret
+0EF7            701   up_check_2:
+0EF7 C3         702            clr c
+0EF8 C0E0       703            push acc
+0EFA 740B       703            mov a, #11
+0EFC 14         703            dec a
+0EFD 12024C     703            lcall ?Set_Cursor_2 ; Select column and row
+0F00 D0E0       703            pop acc
+0F02 C083       704            push dph
+0F04 C082       704            push dpl
+0F06 C0E0       704            push acc
+0F08 9000F9     704            mov dptr, #too_high_message
+0F0B 120241     704            lcall ?Send_Constant_String
+0F0E D0E0       704            pop acc
+0F10 D082       704            pop dpl
+0F12 D083       704            pop dph
+0F14 22         705            ret
+0F15            706   
+0F15            707   down_check: ;R3 min
+0F15 120B6D     708            lcall ADC_to_PB
+0F18 A201       709            mov c, DOWN
+0F1A 5001       710            jnc down_check_1
+0F1C 22         711            ret
+0F1D            712   down_check_1:
+0F1D 8B30       713            mov x, R3
+0F1F 753100     714            mov x+1, #0
+0F22 753200     715            mov x+2, #0
+0F25 753300     716            mov x+3, #0
+0F28 8D34       717            mov y, R5
+0F2A 753500     718            mov y+1, #0
+0F2D 753600     719            mov y+2, #0
+0F30 753700     720            mov y+3, #0
+0F33 1203C4     721            lcall x_lt_y ;min < value
+0F36 D3         722            setb c
+0F37 300505     723            jnb mf, down_check_2
+0F3A ED         724            mov a, R5
+0F3B 9400       725            subb a, #0 ;dec? hex?
+0F3D FD         726            mov R5, a
+0F3E 22         727            ret
+0F3F            728   down_check_2:
+0F3F C3         729            clr c
+0F40 C0E0       730            push acc
+0F42 740B       730            mov a, #11
+0F44 14         730            dec a
+0F45 12024C     730            lcall ?Set_Cursor_2 ; Select column and row
+0F48 D0E0       730            pop acc
+0F4A C083       731            push dph
+0F4C C082       731            push dpl
+0F4E C0E0       731            push acc
+0F50 900103     731            mov dptr, #too_low_message
+0F53 120241     731            lcall ?Send_Constant_String
+0F56 D0E0       731            pop acc
+0F58 D082       731            pop dpl
+0F5A D083       731            pop dph
+0F5C 22         732            ret
+0F5D            733   
+0F5D            734   s_s_check:
+0F5D 120B6D     735            lcall ADC_to_PB
+0F60 A200       736            mov c, S_S
+0F62 5001       737            jnc s_s_check_done ;!could be jb
+0F64 22         738            ret
+0F65            739   s_s_check_done:
+0F65 020761     740            ljmp FSM_Init ;or whatever it's called, 1st state of oven FSM
+0F68            741   
+0F68            742   END

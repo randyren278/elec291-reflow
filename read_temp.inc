@@ -252,6 +252,7 @@ temp_into_y:
     mov y+2, R5
     mov y+3, R6
     lcall add32
+    
     mov y+0, x+0
     mov y+1, x+1
     mov y+2, x+2
