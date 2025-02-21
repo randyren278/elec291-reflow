@@ -314,6 +314,7 @@ Time_increment_done:
 
 
 ADC_to_PB:
+	push acc
 	anl ADCCON0, #0xF0
 	orl ADCCON0, #0x00 ; Select AIN0
 	
@@ -355,6 +356,7 @@ ADC_to_PB_L5:
 	subb a, #0xb0
 	jc ADC_to_PB_L4
 	clr RST;PB5
+	pop acc
 	ret
 
 	; Check PB4
@@ -364,6 +366,7 @@ ADC_to_PB_L4:
 	subb a, #0x90
 	jc ADC_to_PB_L3
 	clr NXT;PB4
+	pop acc
 	ret
 
 	; Check PB3
@@ -373,6 +376,7 @@ ADC_to_PB_L3:
 	subb a, #0x70
 	jc ADC_to_PB_L2
 	clr UP;PB3
+	pop acc
 	ret
 
 	; Check PB2
@@ -382,6 +386,7 @@ ADC_to_PB_L2:
 	subb a, #0x50
 	jc ADC_to_PB_L1
 	clr DOWN
+	pop acc
 	ret
 
 	; Check PB1
@@ -391,6 +396,7 @@ ADC_to_PB_L1:
 	subb a, #0x30
 	jc ADC_to_PB_L0
 	clr S_S
+	pop acc
 	ret
 
 	; Check PB0
@@ -400,10 +406,12 @@ ADC_to_PB_L0:
 	subb a, #0x10
 	jc ADC_to_PB_Done
 	;clr PB0
+	pop acc
 	ret
 	
 ADC_to_PB_Done:
 	; No pusbutton pressed	
+	pop acc
 	ret
 	
 main:
