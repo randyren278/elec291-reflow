@@ -295,14 +295,14 @@ pwm_output:
 
 		
 Time_increment_done:
-	push x+3
-	push x+2
-	push x+1
-	push x+0
-	push y+3
-	push y+2
-	push y+1
-	push y+0
+	pop x+3
+	pop x+2
+	pop x+1
+	pop x+0
+	pop y+3
+	pop y+2
+	pop y+1
+	pop y+0
 	pop psw
 	pop acc
 	reti
