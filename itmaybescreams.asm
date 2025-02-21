@@ -113,7 +113,7 @@ Count1ms:     ds 2
 sec: ds 1
 temp: ds 1
 ; pwm stuff
-pwm_power_factor ds 2;
+pwm_power_factor: ds 2;
 pwm_counter:  ds 1 ; Free running counter 0, 1, 2, ..., 100, 0
 pwm:          ds 1 ; pwm percentage
 seconds:      ds 1 ; a seconds counter attached to Timer 2 ISR
@@ -218,8 +218,15 @@ Timer2_ISR:
 	; The two registers used in the ISR must be saved in the stack
 	push acc
 	push psw
-	push y
-	push x
+	push y+0
+	push y+1
+	push y+2
+	push y+3
+	push x+0
+	push x+1
+	push x+2
+	push x+3
+	
 	
 	; Increment the 16-bit one mili second counter
 	inc Count1ms+0    ; Increment the low 8-bits first
