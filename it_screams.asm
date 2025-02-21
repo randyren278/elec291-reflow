@@ -125,8 +125,8 @@ seconds:      ds 1 ; a seconds counter attached to Timer 2 ISR
 
 $NOLIST
 $include(math32.inc)
-$include(oven_fsm.inc)
 $include(read_temp.inc)
+$include(oven_fsm.inc)
 $LIST
 
 CSEG
@@ -423,6 +423,7 @@ ADC_to_PB_Done:
 	
 main:
 	mov sp, #0x7f
+	lcall Temp_Init_All
 	lcall Init_All
     lcall LCD_4BIT
     
