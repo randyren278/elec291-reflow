@@ -64,6 +64,13 @@ forever_message:  db 'hello please', 0
 its_works:        db 'die',0
 done_message: 	  db 'done!',0
 stop_message: 	  db 'stopped!',0
+					   ;1234567890123456
+oven_fsm_message_0: db 'Oven State 0!   ',0
+oven_fsm_message_1: db 'Oven State 1!   ',0
+oven_fsm_message_2: db 'Oven State 2!   ',0
+oven_fsm_message_3: db 'Oven State 3!   ',0
+oven_fsm_message_4: db 'Oven State 4!   ',0
+oven_fsm_message_5: db 'Oven State 5!   ',0
 ;						   1234567890123456
 reset_state_message:   db 'Settings Reset! ', 0 ;for testing
 state1_message:   db 'state1          ', 0 ;for testing

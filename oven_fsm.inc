@@ -15,6 +15,10 @@ FSM1:
     mov a, oven_state
 ;power = 0, if button pressed go to state 1
 state0:
+    Set_Cursor(1, 1)
+    Send_Constant_String(#oven_fsm_message_0)
+	Set_Cursor(2, 1)
+    Send_Constant_String(#blank)
     lcall rst_check
     cjne a, #0, state1
     mov pwm, #0
@@ -28,6 +32,10 @@ state0_done:
    ; state 0 looks good
 ;power = 100, sec = 0
 state1:
+    Set_Cursor(1, 1)
+    Send_Constant_String(#oven_fsm_message_1)
+	Set_Cursor(2, 1)
+    Send_Constant_String(#blank)
 	lcall rst_check
     cjne a, #1, state2
     mov pwm, #100
@@ -42,6 +50,10 @@ state1_done:
 
 ;power = 20, check time = soak time
 state2:
+    Set_Cursor(1, 1)
+    Send_Constant_String(#oven_fsm_message_2)
+	Set_Cursor(2, 1)
+    Send_Constant_String(#blank)
 	lcall rst_check
     cjne a, #2, state3
     mov pwm, #20
@@ -57,6 +69,10 @@ state2_done:
    
 ;power = 100, sec = 0  
 state3:
+    Set_Cursor(1, 1)
+    Send_Constant_String(#oven_fsm_message_3)
+	Set_Cursor(2, 1)
+    Send_Constant_String(#blank)
 	lcall rst_check
     cjne a, #3, state4
     mov pwm, #100
@@ -72,6 +88,10 @@ state3_done:
 
 ;sec <= reflow, power = 20
 state4:
+    Set_Cursor(1, 1)
+    Send_Constant_String(#oven_fsm_message_4)
+	Set_Cursor(2, 1)
+    Send_Constant_String(#blank)
 	lcall rst_check
     cjne a, #4, state5
     mov pwm, #20
@@ -87,6 +107,10 @@ state4_done:
     ljmp forever
 ;power = 0, temp >= 60
 state5:
+    Set_Cursor(1, 1)
+    Send_Constant_String(#oven_fsm_message_5)
+	Set_Cursor(2, 1)
+    Send_Constant_String(#blank)
 	lcall rst_check
     mov a,#5
     cjne a, #5, state0_epic
