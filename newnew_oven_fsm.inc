@@ -1,12 +1,14 @@
-
 ;just a rough little draft
 
 cseg
 oven_state_init:
     ;initialize vars, start at lowest?
-    mov pwm, #0 ;0x00??
-    lcall update_pwm_factor
+    mov pwm, #0x00 ;0x00??
 	mov oven_state, #0x00 ;60 does this need to be like #60??????
+	;mov soak_temp, #0x96 ;150 decimal
+    ;mov soak_time
+	;mov reflow_time, #0x2D ;45
+	;mov reflow_temp, #0xD9 ;217
     ret
 ;oven fsm  
 FSM1:
@@ -19,8 +21,8 @@ state0:
     Send_Constant_String(#blank)
     lcall rst_check
     cjne a, #0, state1
-    mov pwm, #0
-    lcall update_pwm_factor
+    mov pwm_power_factor+0, #0
+    mov pwm_power_factor+1, #0
     lcall ADC_to_PB
     mov c, S_S
     jc state0
@@ -37,8 +39,8 @@ state1:
     Send_Constant_String(#blank)
 	lcall rst_check
     cjne a, #1, state2
-    mov pwm, #100
-    lcall update_pwm_factor
+    mov pwm_power_factor+0, #low(1000) 
+    mov pwm_power_factor+1, #high(1000)
     mov sec, #0
     mov a, soak_temp
     clr c
@@ -63,8 +65,8 @@ state2:
     display_Bcd(bcd+0)
 	lcall rst_check
     ;cjne a, #2, state3
-    mov pwm, #20
-    lcall update_pwm_factor
+    mov pwm_power_factor+0, #low(200) 
+    mov pwm_power_factor+1, #high(200)
     
     clr mf
     load_x(soak_temp)
@@ -97,8 +99,8 @@ state3:
     Send_Constant_String(#blank)
 	lcall rst_check
     cjne a, #3, state4
-    mov pwm, #100
-    lcall update_pwm_factor
+    mov pwm_power_factor+0, #low(1000) 
+    mov pwm_power_factor+1, #high(1000)
     mov sec, #0
     mov a, reflow_temp
     clr c
@@ -117,8 +119,8 @@ state4:
     Send_Constant_String(#blank)
 	lcall rst_check
     cjne a, #4, state5
-    mov pwm, #20
-    lcall  update_pwm_factor
+    mov pwm_power_factor+0, #low(200) 
+    mov pwm_power_factor+1, #high(200)
     mov a, reflow_time
     clr c
     subb a, sec
@@ -138,8 +140,8 @@ state5:
 	lcall rst_check
     mov a,#5
     cjne a, #5, state0_epic
-    mov pwm, #0
-    lcall update_pwm_factor
+    mov pwm_power_factor+0, #0
+    mov pwm_power_factor+1, #0
     mov a, temp
     clr c
     subb a, #60

@@ -75,7 +75,6 @@ oven_fsm_message_5: db 'Oven State 5!   ',0
 reset_state_message:   db 'Settings Reset! ', 0 ;for testing
 state1_message:   db 'state1          ', 0 ;for testing
 
-
 cseg
 ; These 'equ' must match the hardware wiring
 LCD_RS equ P1.3
@@ -120,17 +119,16 @@ reflow_temp: ds 2
 Count1ms:     ds 2 
 sec: ds 1
 temp: ds 1
-; pwm stuff
-pwm_power_factor: ds 2;
+; pwm stuff 
+pwm_power_factor: ds 2; 16 bit PWM ratio 0-100 which is o -100%
 pwm_counter:  ds 1 ; Free running counter 0, 1, 2, ..., 100, 0
 pwm:          ds 1 ; pwm percentage
 seconds:      ds 1 ; a seconds counter attached to Timer 2 ISR
 
 $NOLIST
 $include(math32.inc)
-$include(newnew_oven_fsm.inc)
 $include(read_temp.inc)
-;$include(pwm.inc)
+$include(newnew_oven_fsm.inc)
 $LIST
 
 CSEG
@@ -235,85 +233,49 @@ Timer2_ISR:
 	push x+2
 	push x+3
 	
-	
 	; Increment the 16-bit one mili second counter
 	inc Count1ms+0    ; Increment the low 8-bits first
 	mov a, Count1ms+0 ; If the low 8-bits overflow, then increment high 8-bits
-	jnz inc_done_fixed_maybe
+	jnz Inc_Done_randys_version
 	inc Count1ms+1
 
-inc_done_fixed_maybe:
-    ; control using power factor
+Inc_Done_randys_version:
 
+	; CODE TO MAKE THE PWM WORK
+	;clr c
+	;load_x(pwm)
+	;load_y(10)
+	;lcall mul32
+	;clr c
+	;mov a, x+0
+	;subb a, Count1ms+0
+	;jnc pwm_output
+	;clr c 
+	;mov a, x+1
+	;subb a, Count1ms+1 ; If pwm_counter <= pwm then c=1
     clr c
     mov a, pwm_power_factor+0
     subb a, Count1ms+0
-    jnc pwm_output
-    clr c
     mov a, pwm_power_factor+1
     subb a, Count1ms+1
+    mov PWM_OUT, c
 
-pwm_output:
-    cpl c
-    Mov PWM_OUT, c
-
-    ; check 1000 ms thing
-
+    ;1 second check 
     mov a, Count1ms+0
-    cjne a, #low(1000), time_done_done
+    cjne a, #low(1000), Time_increment_done 
     mov a, Count1ms+1
-    cjne a, #high(1000), time_done_done
+    cjne a, #high(1000), Time_increment_done
 
-    ;reset ms counter and update seconds 
     clr a
     mov Count1ms+0, a
     mov Count1ms+1, a
     setb seconds_flag
-    mov a, sec
-    add a, #1
-    da a
-    mov sec, a
+    inc seconds
 
-time_done_done:
-	pop y+0
-	pop y+1
-	pop y+2
-	pop y+3
-	pop x+0
-	pop x+1
-	pop x+2
-	pop x+3
-    pop psw
-    pop acc
-    reti
-
-update_pwm_factor:
-    ; from 0-100 -> 0-1000
-    load_x(pwm)
-    load_y(10)
-    lcall mul32 
-    ; store in pwm power factor 
-    mov pwm_power_factor, x
-
-
-;Inc_Done_randys_version:
-
-	; CODE TO MAKE THE PWM WORK
-;	clr c
-;	load_x(pwm)
-;	load_y(10)
-;	lcall mul32
-;	clr c
-;	mov a, x+0
-;	subb a, Count1ms+0
-;	jnc pwm_output
-;	clr c 
-;	mov a, x+1
-;	subb a, Count1ms+1 ; If pwm_counter <= pwm then c=1
 ;pwm_output:
 ;	cpl c
 ;	mov PWM_OUT, c
-;
+
 	;check if 1000 ms has passed 
 ;	mov a, Count1ms+0
 ;	cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
@@ -321,19 +283,19 @@ update_pwm_factor:
 ;	cjne a, #high(1000), Time_increment_done
 
 	; if1000 ms has passed 
-
+;
 ;	clr A
 ;	mov Count1ms+0, A
 ;	mov Count1ms+1, A
 ;	setb seconds_flag
 
-	;increment second flag 
-
+;	;increment second flag 
+;
 ;	mov a, sec
 ;	add a, #1
 ;	da A
 ;	mov sec, A
-
+;
 
 ;Inc_Done:
 	; Check if second has passed
@@ -359,6 +321,19 @@ update_pwm_factor:
 ;	
 ;	cjne a, #0x60, Time_increment_done
 
+		
+Time_increment_done:
+	pop x+3
+	pop x+2
+	pop x+1
+	pop x+0
+	pop y+3
+	pop y+2
+	pop y+1
+	pop y+0
+	pop psw
+	pop acc
+	reti
 
 
 
@@ -367,6 +342,7 @@ update_pwm_factor:
 
 
 ADC_to_PB:
+	push acc
 	anl ADCCON0, #0xF0
 	orl ADCCON0, #0x00 ; Select AIN0
 	
@@ -408,6 +384,7 @@ ADC_to_PB_L5:
 	subb a, #0xb0
 	jc ADC_to_PB_L4
 	clr RST;PB5
+	pop acc
 	ret
 
 	; Check PB4
@@ -417,6 +394,7 @@ ADC_to_PB_L4:
 	subb a, #0x90
 	jc ADC_to_PB_L3
 	clr NXT;PB4
+	pop acc
 	ret
 
 	; Check PB3
@@ -426,6 +404,7 @@ ADC_to_PB_L3:
 	subb a, #0x70
 	jc ADC_to_PB_L2
 	clr UP;PB3
+	pop acc
 	ret
 
 	; Check PB2
@@ -435,6 +414,7 @@ ADC_to_PB_L2:
 	subb a, #0x50
 	jc ADC_to_PB_L1
 	clr DOWN
+	pop acc
 	ret
 
 	; Check PB1
@@ -444,6 +424,7 @@ ADC_to_PB_L1:
 	subb a, #0x30
 	jc ADC_to_PB_L0
 	clr S_S
+	pop acc
 	ret
 
 	; Check PB0
@@ -453,14 +434,17 @@ ADC_to_PB_L0:
 	subb a, #0x10
 	jc ADC_to_PB_Done
 	;clr PB0
+	pop acc
 	ret
 	
 ADC_to_PB_Done:
 	; No pusbutton pressed	
+	pop acc
 	ret
 	
 main:
 	mov sp, #0x7f
+	lcall Temp_Init_All
 	lcall Init_All
     lcall LCD_4BIT
     
