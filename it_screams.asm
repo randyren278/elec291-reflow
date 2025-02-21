@@ -448,6 +448,7 @@ no_second:
 
 ;for testing since there's no other fsm right now
 
+
 ;begin select FSM
 FSM_select:
 	mov a, selecting_state
@@ -701,6 +702,6 @@ s_s_check:
 	jnc s_s_check_done ;!could be jb
 	ret
 s_s_check_done:
-	ljmp state0 ;or whatever it's called, 1st state of oven FSM
+	ljmp state_pls ;or whatever it's called, 1st state of oven FSM
 
 END
