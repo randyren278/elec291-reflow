@@ -460,6 +460,7 @@ no_second:
 
 ;for testing since there's no other fsm right now
 
+
 ;begin select FSM
 FSM_select:
 	mov a, selecting_state

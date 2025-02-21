@@ -15,15 +15,17 @@ FSM1:
     mov a, oven_state
 ;power = 0, if button pressed go to state 1
 state0:
+    lcall rst_check
     cjne a, #0, state1
     mov pwm, #0
     lcall ADC_to_PB
     mov c, S_S
     jc state0
-    mov oven_state, #0x01
+    mov oven_state, #1
 state0_done:
     ljmp forever
    
+   ; state 0 looks good
 ;power = 100, sec = 0
 state1:
 	lcall rst_check
@@ -86,18 +88,23 @@ state4_done:
 ;power = 0, temp >= 60
 state5:
 	lcall rst_check
-    cjne a, #5, state0
+    mov a,#5
+    cjne a, #5, state0_epic
     mov pwm, #0
-    mov a, #60
+    mov a, temp
     clr c
-    subb a, temp
-    jnc state5_done
-    mov oven_state, #0
+    subb a, #60
+    jnc state5_transition
+state5_transition:
     Set_Cursor(1, 1)  ;set later
     Send_Constant_String(#done_message)
+    mov oven_state, #0
+    ljmp forever
 state5_done:
     cpl SOUND_OUT ; connect speaker to
-        ljmp forever
+    ljmp forever
+state0_epic:
+ljmp state0
 
 state_stop: ;check if stop button is pressed, and display the word 'STOPPED' on lcd display
     mov pwm, #0 ;power to 0
