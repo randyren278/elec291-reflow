@@ -3,8 +3,12 @@
 cseg
 oven_state_init:
     ;initialize vars, start at lowest?
-    mov pwm, #0x00 ;0x00??
+    mov pwm_power, #0x00 ;0x00??
+    mov pwm_period_counter, #0
+    mov period , #0
+    mov oven_status, #0
 	mov oven_state, #0x00 ;60 does this need to be like #60??????
+
 	;mov soak_temp, #0x96 ;150 decimal
     ;mov soak_time
 	;mov reflow_time, #0x2D ;45
@@ -37,7 +41,7 @@ ramp_to_soak:
     display_Bcd(bcd+0)
 	;lcall rst_check
     ; Do state duties
-    mov pwm, #100
+    mov pwm_power, #10
     ; Move to next state if condition is met
     mov x+0, #150
     mov x+1, #0
@@ -70,7 +74,7 @@ soak_state:
 	Set_Cursor(2, 1)
     Send_Constant_String(#blank)
     ; Does state duties
-    mov pwm, #20
+    mov pwm_power, #2
     ; Transitions to next state
     clr c
     mov a, #60
@@ -98,7 +102,7 @@ ramp_to_peak:
     display_Bcd(bcd+0)
 	;lcall rst_check
     ; Do state duties
-    mov pwm, #100
+    mov pwm_power, #10
     ; Move to next state if condition is met
     mov x+0, #220
     mov x+1, #0
@@ -131,7 +135,7 @@ reflow_state:
 	Set_Cursor(2, 1)
     Send_Constant_String(#blank)
     ; Does state duties
-    mov pwm, #20
+    mov pwm_power, #2
     ; Transitions to next state
     clr c
     mov a, #45
@@ -159,6 +163,7 @@ cooldown_state:
     display_Bcd(bcd+0)
 	;lcall rst_check
     ; Do state duties
+    mov pwm_power, #0 ; idk if this is needed
     
     ; Move to next state if condition is met
     mov x+0, #60

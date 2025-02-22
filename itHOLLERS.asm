@@ -123,6 +123,13 @@ temp: ds 1
 pwm_counter:  ds 1 ; Free running counter 0, 1, 2, ..., 100, 0
 pwm:          ds 1 ; pwm percentage
 seconds:      ds 1 ; a seconds counter attached to Timer 2 ISR
+; please fesus work work work wrok wrok work workowrkowkrokwro
+
+period: ds 1 ; 100ms counter for pwm period 
+oven_status: ds 1 ; 0 = off, 1 = on
+pwm_period_counter: ds 1 ; pwm cycle counter 
+pwm_power: ds 1 ; pwm power level
+
 
 $NOLIST
 $include(math32.inc)
@@ -235,46 +242,111 @@ Timer2_ISR:
 	; Increment the 16-bit one mili second counter
 	inc Count1ms+0    ; Increment the low 8-bits first
 	mov a, Count1ms+0 ; If the low 8-bits overflow, then increment high 8-bits
-	jnz Inc_Done_randys_version
+	jnz penispenispenis
 	inc Count1ms+1
 
-Inc_Done_randys_version:
+penispenispenis: 
+	inc period
+	mov a, period
+	cjne a, #100, PWM_check
+	mov period, #0
+
+	:update tjat counter 
+	inc pwm_period_counter
+	mov a, pwm_period_counter
+	cjne a, #10, PWM_check
+	mov pwm_period_counter, #0
+
+PWM_check:
+	mov a, pwm_power
+	jz PWM_fully_off
+	cjne a, #10, PWM_cont
+
+PWM_fully_on:
+	mov oven_status, #1
+	setb PWM_OUT
+	ljmp PWM_done
+
+PWM_fully_off:
+	mov oven_status, #0
+	clr PWM_OUT
+	ljmp PWM_done
+
+PWM_cont:
+	mov a, oven_status
+	jnz PWM_on_phase
+
+PWM_off_phase:
+	mov a, pwm_period_counter
+	jnz PWM_done
+	mov oven_status, #1
+	setb PWM_OUT
+	ljmp PWM_done
+
+PWM_on_phase:
+	mov a, pwm_period_counter
+	clr c
+	subb a, pwm_power
+	jnc PWM_off_transition
+	ljmp PWM_done
+
+PWM_off_transition:
+	mov oven_status, #0
+	clr PWM_OUT
+
+PWM_done:
+	pop x+3
+	pop x+2
+	pop x+1
+	pop x+0
+	pop y+3
+	pop y+2
+	pop y+1
+	pop y+0
+	pop psw
+	pop acc
+	reti
+
+; this hoe do not work oh my days 
+
+
+
 
 	; CODE TO MAKE THE PWM WORK
-	clr c
-	load_x(pwm)
-	load_y(10)
-	lcall mul32
-	clr c
-	mov a, x+0
-	subb a, Count1ms+0
-	jnc pwm_output
-	clr c 
-	mov a, x+1
-	subb a, Count1ms+1 ; If pwm_counter <= pwm then c=1
-pwm_output:
-	cpl c
-	mov PWM_OUT, c
+;	clr c
+;	load_x(pwm)
+;	load_y(10)
+;	lcall mul32
+;	clr c
+;	mov a, x+0
+;	subb a, Count1ms+0
+;	jnc pwm_output
+;	clr c 
+;	mov a, x+1
+;	subb a, Count1ms+1 ; If pwm_counter <= pwm then c=1
+;pwm_output:
+;	cpl c
+;	mov PWM_OUT, c
 
 	;check if 1000 ms has passed 
-	mov a, Count1ms+0
-	cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
-	mov a, Count1ms+1
-	cjne a, #high(1000), Time_increment_done
+;	mov a, Count1ms+0
+;	cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
+;	mov a, Count1ms+1
+;	cjne a, #high(1000), Time_increment_done
 
 	; if1000 ms has passed 
 
-	clr A
-	mov Count1ms+0, A
-	mov Count1ms+1, A
+;	clr A
+;	mov Count1ms+0, A
+;	mov Count1ms+1, A
 
-	mov c, oven_flag
+;	mov c, oven_flag
 	;addc seconds, #0 ; It is super easy to keep a seconds count here
-	mov  A, seconds   ; Load seconds into A
-	addc A, #0       ; Add the carry to A
-	mov  seconds, A   ; Store the result back in seconds
+;	mov  A, seconds   ; Load seconds into A
+;	addc A, #0       ; Add the carry to A
+;	mov  seconds, A   ; Store the result back in seconds
 
-	setb seconds_flag
+;	setb seconds_flag
 
 	;increment second flag 
 
@@ -309,18 +381,18 @@ pwm_output:
 ;	cjne a, #0x60, Time_increment_done
 
 		
-Time_increment_done:
-	pop x+3
-	pop x+2
-	pop x+1
-	pop x+0
-	pop y+3
-	pop y+2
-	pop y+1
-	pop y+0
-	pop psw
-	pop acc
-	reti
+;Time_increment_done:
+;	pop x+3
+;	pop x+2
+;	pop x+1
+;	pop x+0
+;	pop y+3
+;	pop y+2
+;	pop y+1
+;	pop y+0
+;	pop psw
+;	pop acc
+;	reti
 
 
 
