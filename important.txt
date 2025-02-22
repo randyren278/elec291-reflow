@@ -7,6 +7,9 @@ it howls and new new oven fsm
 alternatepwm.asm and alternate oven .inc 
 - have another version of a possibly working pwm controller  
 
+otherpwm.asm and otheroven.inc 
+- tests another version of pwm impelmentation 
+
 -------------------------------------------------------------
 
 - serial port intilizationw will be added to a newer file 

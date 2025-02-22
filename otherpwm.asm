@@ -1,6 +1,11 @@
 ; note to self 
 ; alternate pwm.asm is the file 2 that has wcompiling pwm test code 
 
+; further notes in pwm demo.asm 
+
+; pwm counter is cleared in after RCMP timer 2 reload in init all and before ORL eie  
+; counter is done in timer 2 isr
+
 ;with 5 adc push buttons
 ;to think about:
 	;adding another state for when start is pressed so that in forever if it gets sent back to FSM_select
@@ -129,7 +134,7 @@ seconds:      ds 1 ; a seconds counter attached to Timer 2 ISR
 $NOLIST
 $include(math32.inc)
 $include(read_temp.inc)
-$include(alternateoven.inc)
+$include(otheroven.inc)
 $LIST
 
 CSEG
@@ -206,6 +211,9 @@ Timer2_Init:
 	;orl T2MOD, #0x80 ; Enable timer 2 autoreload this was it before
 	mov RCMP2H, #high(TIMER2_RELOAD)
 	mov RCMP2L, #low(TIMER2_RELOAD)
+    
+    ; test this 
+    mov pwm_counter, #0 
 	; Init One millisecond interrupt counter.  It is a 16-bit variable made with two 8-bit parts
 	clr a
 	mov Count1ms+0, a
@@ -240,7 +248,7 @@ Timer2_ISR:
 	jnz pwm_skip_high
 	inc Count1ms+1
 
-pwm_skip_high:
+;pwm_skip_high:
 	; pwm control usses a 0-100 ms counter for a 100ms period 
 	; The pwm counter is incremented here
 	; also set oven flag 
@@ -253,43 +261,43 @@ pwm_skip_high:
 
 	; attempt to redefine my fucking ass 
 
-	inc pwm_counter
+;	inc pwm_counter
 
-	mov a, pwm_counter
-	cjne a, #100, no_pwm_reset
-	mov pwm_counter, #0 
+;	mov a, pwm_counter
+;	cjne a, #100, no_pwm_reset
+;	mov pwm_counter, #0 
 
 	; if this shit doesnt work i swear to god 
 
-no_pwm_reset:
+;no_pwm_reset:
 	; compares the period counter with pwm "percentage" if the pwm counter is 
 	; less than the pwm then the output is high 
 	; eg. pwm =40 then it will sent on output to pwm for the first 40ms of teh 100ms cycle
 
-	clr c
-	mov a, pwm
-	subb a, pwm_counter ; If pwm_counter <= pwm then c=1
-	cpl c
-	mov PWM_OUT, c
+;	clr c
+;	mov a, pwm
+;	subb a, pwm_counter ; If pwm_counter <= pwm then c=1
+;	cpl c
+;	mov PWM_OUT, c
 	; set pwm out accordingly 
 	; --------------------------------------------------------------
 	; regular 1second check 
-	mov a, Count1ms+0
-	cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
-	mov a, Count1ms+1
-	cjne a, #high(1000), Time_increment_done
+;	mov a, Count1ms+0
+;	cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
+;	mov a, Count1ms+1
+;	cjne a, #high(1000), Time_increment_done
 
 	; after 1 second has passed 
 
-	clr a
-	mov Count1ms+0, a
-	mov Count1ms+1, a
+;	clr a
+;	mov Count1ms+0, a
+;	mov Count1ms+1, a
 
-	mov a, seconds
-	addc a, #0 ; It is super easy to keep a seconds count here
-	mov seconds, A
+;	mov a, seconds
+;	addc a, #0 ; It is super easy to keep a seconds count here
+;	mov seconds, A
 
-	setb seconds_flag
+;	setb seconds_flag
 
 
 
