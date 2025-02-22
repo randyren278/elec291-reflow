@@ -34,7 +34,7 @@ state0_done:
     ;ljmp forever
    
    ; state 0 looks good
-;power = 100, sec = 0
+;power = 100, secondsonds = 0
 state1:
     Set_Cursor(1, 1)
     Send_Constant_String(#oven_fsm_message_1)
@@ -44,7 +44,7 @@ state1:
     cjne a, #1, state2
     mov pwm_power_factor+0, #low(1000) 
     mov pwm_power_factor+1, #high(1000)
-    mov sec, #0
+    mov seconds, #0
     mov a, #150
     clr c
     subb a, temp
@@ -95,7 +95,7 @@ state2_done:
     clr SOUND_OUT
     ;ljmp forever
    
-;power = 100, sec = 0  
+;power = 100, seconds = 0  
 state3:
     Set_Cursor(1, 1)
     Send_Constant_String(#oven_fsm_message_3)
@@ -105,7 +105,7 @@ state3:
     cjne a, #3, state4
     mov pwm_power_factor+0, #low(1000) 
     mov pwm_power_factor+1, #high(1000)
-    mov sec, #0
+    mov seconds, #0
     mov a, #217
     ; replace 217 with reflow temp 
     clr c
@@ -116,7 +116,7 @@ state3:
 state3_done:
     ;ljmp forever
 
-;sec <= reflow, power = 20
+;seconds <= reflow, power = 20
 state4:
     Set_Cursor(1, 1)
     Send_Constant_String(#oven_fsm_message_4)
@@ -129,7 +129,7 @@ state4:
     mov a, #45
     ; replacede reflow time
     clr c
-    subb a, sec
+    subb a, seconds
     jnc state4_done
     mov oven_state, #5
 

@@ -129,6 +129,7 @@ $NOLIST
 $include(math32.inc)
 $include(read_temp.inc)
 $include(newnew_oven_fsm.inc)
+;$include(testovenfsm.inc)
 $LIST
 
 CSEG

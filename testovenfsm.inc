@@ -1,3 +1,4 @@
+
 cseg
 oven_state_init:
     ; Initialize variables
@@ -5,9 +6,9 @@ oven_state_init:
     mov pwm_power_factor+1, #0
     mov oven_state, #0x00         ; Start in state 0 (idle)
     mov soak_temp,  #150          ; Soak temperature: 150°C
-    mov soak_time,  #60           ; Soak duration: 60 seconds
+    mov soak_time,  #60           ; Soak duration: 60 secondsonds
     mov reflow_temp, #217         ; Reflow temperature: 217°C
-    mov reflow_time, #45          ; Reflow duration: 45 seconds
+    mov reflow_time, #45          ; Reflow duration: 45 secondsonds
     ret
 
 ; Finite State Machine (FSM) for oven control
@@ -39,14 +40,14 @@ state1:
     cjne a, #1, state2
     mov pwm_power_factor+0, #low(1000)
     mov pwm_power_factor+1, #high(1000)
-    mov sec, #0
+    mov seconds, #0
     mov a, soak_temp
     clr c
     subb a, temp
     jnc state1
     mov oven_state, #2
 
-; State 2: Soak phase (20% power for 60 seconds)
+; State 2: Soak phase (20% power for 60 secondsonds)
 state2:
     Set_Cursor(1, 1)
     Send_Constant_String(#oven_fsm_message_2)  ; "Soak Phase"
@@ -58,7 +59,7 @@ state2:
     ; Check soak time
     mov a, soak_time
     clr c
-    subb a, sec
+    subb a, seconds
     jnc state2
     ; Time elapsed: play sound & transition
     cpl SOUND_OUT       ; Beep
@@ -75,14 +76,14 @@ state3:
     cjne a, #3, state4
     mov pwm_power_factor+0, #low(1000)
     mov pwm_power_factor+1, #high(1000)
-    mov sec, #0
+    mov seconds, #0
     mov a, reflow_temp
     clr c
     subb a, temp
     jnc state3
     mov oven_state, #4
 
-; State 4: Reflow phase (20% power for 45 seconds)
+; State 4: Reflow phase (20% power for 45 secondsonds)
 state4:
     Set_Cursor(1, 1)
     Send_Constant_String(#oven_fsm_message_4)  ; "Reflow Phase"
@@ -94,7 +95,7 @@ state4:
     ; Check reflow time
     mov a, reflow_time
     clr c
-    subb a, sec
+    subb a, seconds
     jnc state4
     ; Time elapsed: play sound & transition
     cpl SOUND_OUT       ; Beep
@@ -134,3 +135,5 @@ state_stop:
     Set_Cursor(1, 1)
     Send_Constant_String(#stop_message)  ; "STOPPED"
     ljmp forever
+
+    
