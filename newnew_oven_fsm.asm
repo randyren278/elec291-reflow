@@ -1,3 +1,5 @@
+
+
 ;just a rough little draft
 
 cseg
@@ -43,7 +45,7 @@ state1:
     mov pwm_power_factor+0, #low(1000) 
     mov pwm_power_factor+1, #high(1000)
     mov sec, #0
-    mov a, soak_temp
+    mov a, #150
     clr c
     subb a, temp
     jnc state1
@@ -70,7 +72,8 @@ state2:
     mov pwm_power_factor+1, #high(200)
     
     clr mf
-    load_x(soak_temp)
+    load_x(150)
+    ; changed from soak_temp
     load_y(10000)
     lcall mul32
     push x+0
@@ -103,7 +106,8 @@ state3:
     mov pwm_power_factor+0, #low(1000) 
     mov pwm_power_factor+1, #high(1000)
     mov sec, #0
-    mov a, reflow_temp
+    mov a, #217
+    ; replace 217 with reflow temp 
     clr c
     subb a, temp
     jnc state3_done
@@ -122,7 +126,8 @@ state4:
     cjne a, #4, state5
     mov pwm_power_factor+0, #low(200) 
     mov pwm_power_factor+1, #high(200)
-    mov a, reflow_time
+    mov a, #45
+    ; replacede reflow time
     clr c
     subb a, sec
     jnc state4_done
