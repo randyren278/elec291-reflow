@@ -43,8 +43,8 @@ BAUD              EQU 115200 ; Baud rate of UART in bps
 TIMER1_RATE         EQU 100      ; 100Hz or 10ms
 TIMER1_RELOAD       EQU (65536-(CLK/(16*TIMER2_RATE))) ; Need to change timer 1 input divide to 16 in T2MOD
 TIMER0_RELOAD_1MS EQU (0x10000-(CLK/1000))
-TIMER2_RATE   EQU 1000     ; 1000Hz, for a timer tick of 1ms
-TIMER2_RELOAD EQU ((65536-(CLK/TIMER2_RATE)))
+TIMER2_RATE   EQU 100     ; 1000Hz, for a timer tick of 1ms----> change to 100hz for a 10ms period 
+TIMER2_RELOAD EQU ((65536-(CLK/16*TIMER2_RATE)))
 
 ORG 0x0000
 	ljmp main
@@ -216,9 +216,9 @@ Timer2_Init:
     mov pwm_counter, #0 
 	; Init One millisecond interrupt counter.  It is a 16-bit variable made with two 8-bit parts
 	clr a
-	mov Count1ms+0, a
-	mov Count1ms+1, a
-	mov sec, #0
+	;mov Count1ms+0, a
+	;mov Count1ms+1, a
+	;mov sec, #0
 	clr seconds_flag
 	; Enable the timer and interrupts
 	orl EIE, #0x80 ; Enable timer 2 interrupt ET2=1
@@ -228,25 +228,43 @@ Timer2_Init:
 ; ISR for timer 2                 ;
 ;---------------------------------;
 Timer2_ISR:
-	clr TF2  ; Timer 2 doesn't clear TF2 automatically. Do it in the ISR.  It is bit addressable.
-	
-	; The two registers used in the ISR must be saved in the stack
-	push acc
-	push psw
-	push y+0
-	push y+1
-	push y+2
-	push y+3
-	push x+0
-	push x+1
-	push x+2
-	push x+3
-	
-	; Increment the 16-bit one mili second counter
-	inc Count1ms+0    ; Increment the low 8-bits first
-	mov a, Count1ms+0 ; If the low 8-bits overflow, then increment high 8-bits
-	jnz pwm_skip_high
-	inc Count1ms+1
+    clr TF2                      ; Clear Timer2 interrupt flag
+    push acc
+    push psw
+    push y+0
+    push y+1
+    push y+2
+    push y+3
+    push x+0
+    push x+1
+    push x+2
+    push x+3
+
+    inc pwm_counter              ; Increment PWM counter every 10 ms
+    clr c
+    mov a, pwm                   ; Compare PWM counter with duty cycle
+    subb a, pwm_counter
+    cpl c
+    mov PWM_OUT, c               ; Set PWM output
+
+    mov a, pwm_counter
+    cjne a, #100, Timer2_ISR_Done ; Check if 1 second has passed (100 * 10 ms)
+    mov pwm_counter, #0           ; Reset PWM counter
+    inc seconds                   ; Increment seconds counter
+    setb seconds_flag             ; Set flag indicating a second has passed
+
+Timer2_ISR_Done:
+    pop x+3
+    pop x+2
+    pop x+1
+    pop x+0
+    pop y+3
+    pop y+2
+    pop y+1
+    pop y+0
+    pop psw
+    pop acc
+    reti
 
 ;pwm_skip_high:
 	; pwm control usses a 0-100 ms counter for a 100ms period 
@@ -372,19 +390,6 @@ Timer2_ISR:
 ;	cjne a, #0x60, Time_increment_done
 
 		
-Time_increment_done:
-	pop x+3
-	pop x+2
-	pop x+1
-	pop x+0
-	pop y+3
-	pop y+2
-	pop y+1
-	pop y+0
-	pop psw
-	pop acc
-	reti
-
 
 
 
