@@ -3,7 +3,8 @@
 cseg
 oven_state_init:
     ;initialize vars, start at lowest?
-    mov pwm, #0x00 ;0x00??
+    mov pwm_power_factor+0, #0
+    mov pwm_power_factor+1, #0
 	mov oven_state, #0x00 ;60 does this need to be like #60??????
 	;mov soak_temp, #0x96 ;150 decimal
     ;mov soak_time
@@ -158,7 +159,8 @@ state0_epic:
 ljmp state0
 
 state_stop: ;check if stop button is pressed, and display the word 'STOPPED' on lcd display
-    mov pwm, #0 ;power to 0
+    mov pwm_power_factor+0, #0
+    mov pwm_power_factor+1, #0
     Set_Cursor(1, 1)  ;set later
     Send_Constant_String(#stop_message)
     ;go where?
