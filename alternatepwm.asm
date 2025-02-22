@@ -1,4 +1,5 @@
-;please work
+; note to self 
+; alternate pwm.asm is the file 2 that has wcompiling pwm test code 
 
 ;with 5 adc push buttons
 ;to think about:
