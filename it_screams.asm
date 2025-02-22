@@ -1,4 +1,7 @@
 ;please work
+; do not touch functional except for
+; pwm and load_X i think 
+
 
 ;with 5 adc push buttons
 ;to think about:

@@ -246,9 +246,19 @@ pwm_skip_high:
 	;jnb oven_flag, skip_pwm ; skips the pwm calcaultions if teh oven isnt turned on in the state machine 
 
 
+	;inc pwm_counter
+	;cjne pwm_counter, #100, no_pwm_reset
+	;mov pwm_counter, #0 ;reset when period is 100 ms 
+
+	; attempt to redefine my fucking ass 
+
 	inc pwm_counter
-	cjne pwm_counter, #100, no_pwm_reset
-	mov pwm_counter, #0 ;reset when period is 100 ms 
+
+	mov a, pwm_counter
+	cjne a, #100, no_pwm_reset
+	mov pwm_counter, #0 
+
+	; if this shit doesnt work i swear to god 
 
 no_pwm_reset:
 	; compares the period counter with pwm "percentage" if the pwm counter is 
