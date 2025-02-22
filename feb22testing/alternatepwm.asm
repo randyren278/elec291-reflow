@@ -84,7 +84,7 @@ LCD_D5 equ P0.1
 LCD_D6 equ P0.2
 LCD_D7 equ P0.3
 SOUND_OUT equ P1.5
-PWM_OUT    equ P1.0 ; Logic 1=oven on
+PWM_OUT    EQU P1.0 ; Logic 1=oven on
 
 $NOLIST
 $include(LCD_4bit.inc) ; A library of LCD related functions and utility macros
@@ -120,21 +120,15 @@ reflow_temp: ds 2
 Count1ms:     ds 2 
 sec: ds 1
 temp: ds 1
+; 90% sure jesus code is a scam 
 pwm_counter:  ds 1 ; Free running counter 0, 1, 2, ..., 100, 0
 pwm:          ds 1 ; pwm percentage
 seconds:      ds 1 ; a seconds counter attached to Timer 2 ISR
-; please fesus work work work wrok wrok work workowrkowkrokwro
-
-period: ds 1 ; 100ms counter for pwm period 
-oven_status: ds 1 ; 0 = off, 1 = on
-pwm_period_counter: ds 1 ; pwm cycle counter 
-pwm_power: ds 1 ; pwm power level
-
 
 $NOLIST
 $include(math32.inc)
 $include(read_temp.inc)
-$include(new_oven_fsm.inc)
+$include(alternateoven.inc)
 $LIST
 
 CSEG
@@ -242,72 +236,50 @@ Timer2_ISR:
 	; Increment the 16-bit one mili second counter
 	inc Count1ms+0    ; Increment the low 8-bits first
 	mov a, Count1ms+0 ; If the low 8-bits overflow, then increment high 8-bits
-	jnz penispenispenis
+	jnz pwm_skip_high
 	inc Count1ms+1
 
-penispenispenis: 
-	inc period
-	mov a, period
-	cjne a, #100, PWM_check
-	mov period, #0
+pwm_skip_high:
+	; pwm control usses a 0-100 ms counter for a 100ms period 
+	; The pwm counter is incremented here
+	; also set oven flag 
+	;jnb oven_flag, skip_pwm ; skips the pwm calcaultions if teh oven isnt turned on in the state machine 
 
-	:update tjat counter 
-	inc pwm_period_counter
-	mov a, pwm_period_counter
-	cjne a, #10, PWM_check
-	mov pwm_period_counter, #0
 
-PWM_check:
-	mov a, pwm_power
-	jz PWM_fully_off
-	cjne a, #10, PWM_cont
+	inc pwm_counter
+	cjne pwm_counter, #100, no_pwm_reset
+	mov pwm_counter, #0 ;reset when period is 100 ms 
 
-PWM_fully_on:
-	mov oven_status, #1
-	setb PWM_OUT
-	ljmp PWM_done
+no_pwm_reset:
+	; compares the period counter with pwm "percentage" if the pwm counter is 
+	; less than the pwm then the output is high 
+	; eg. pwm =40 then it will sent on output to pwm for the first 40ms of teh 100ms cycle
 
-PWM_fully_off:
-	mov oven_status, #0
-	clr PWM_OUT
-	ljmp PWM_done
-
-PWM_cont:
-	mov a, oven_status
-	jnz PWM_on_phase
-
-PWM_off_phase:
-	mov a, pwm_period_counter
-	jnz PWM_done
-	mov oven_status, #1
-	setb PWM_OUT
-	ljmp PWM_done
-
-PWM_on_phase:
-	mov a, pwm_period_counter
 	clr c
-	subb a, pwm_power
-	jnc PWM_off_transition
-	ljmp PWM_done
+	mov a, pwm
+	subb a, pwm_counter ; If pwm_counter <= pwm then c=1
+	cpl c
+	mov PWM_OUT, c
+	; set pwm out accordingly 
+	; --------------------------------------------------------------
+	; regular 1second check 
+	mov a, Count1ms+0
+	cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
+	mov a, Count1ms+1
+	cjne a, #high(1000), Time_increment_done
 
-PWM_off_transition:
-	mov oven_status, #0
-	clr PWM_OUT
+	; after 1 second has passed 
 
-PWM_done:
-	pop x+3
-	pop x+2
-	pop x+1
-	pop x+0
-	pop y+3
-	pop y+2
-	pop y+1
-	pop y+0
-	pop psw
-	pop acc
-	reti
+	clr a
+	mov Count1ms+0, a
+	mov Count1ms+1, a
 
-; this hoe do not work oh my days 
+	mov a, seconds
+	addc a, #0 ; It is super easy to keep a seconds count here
+	mov seconds, A
+
+	setb seconds_flag
+
 
 
 
@@ -336,9 +308,9 @@ PWM_done:
 
 	; if1000 ms has passed 
 
-;	clr A
+	;clr A
 ;	mov Count1ms+0, A
-;	mov Count1ms+1, A
+	;mov Count1ms+1, A
 
 ;	mov c, oven_flag
 	;addc seconds, #0 ; It is super easy to keep a seconds count here
@@ -381,18 +353,18 @@ PWM_done:
 ;	cjne a, #0x60, Time_increment_done
 
 		
-;Time_increment_done:
-;	pop x+3
-;	pop x+2
-;	pop x+1
-;	pop x+0
-;	pop y+3
-;	pop y+2
-;	pop y+1
-;	pop y+0
-;	pop psw
-;	pop acc
-;	reti
+Time_increment_done:
+	pop x+3
+	pop x+2
+	pop x+1
+	pop x+0
+	pop y+3
+	pop y+2
+	pop y+1
+	pop y+0
+	pop psw
+	pop acc
+	reti
 
 
 
