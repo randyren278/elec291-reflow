@@ -552,10 +552,10 @@ push_x MAC
 ENDMAC
 
 pop_x MAC
-	pop x+0
-	pop x+1
-	pop x+2
 	pop x+3
+	pop x+2
+	pop x+1
+	pop x+0
 ENDMAC
 
 push_y MAC
@@ -566,10 +566,10 @@ push_y MAC
 ENDMAC
 
 pop_y MAC
-	pop y+0
-	pop y+1
-	pop y+2
 	pop y+3
+	pop y+2
+	pop y+1
+	pop y+0
 ENDMAC
 	
 $LIST
