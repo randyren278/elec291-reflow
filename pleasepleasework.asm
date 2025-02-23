@@ -36,11 +36,13 @@ $LIST
 ;
 
 CLK               EQU 16600000 ; Microcontroller system frequency in Hz
+PWM_FREQ 		EQU 100     ; PWM frequency in Hz
+PWM_STEPS		EQU 100     ; Number of steps in the PWM cycle
 BAUD              EQU 115200 ; Baud rate of UART in bps
 TIMER1_RATE         EQU 100      ; 100Hz or 10ms
 TIMER1_RELOAD       EQU (65536-(CLK/(16*TIMER2_RATE))) ; Need to change timer 1 input divide to 16 in T2MOD
 TIMER0_RELOAD_1MS EQU (0x10000-(CLK/1000))
-TIMER2_RATE   EQU 10000     ; 1000Hz, for a timer tick of 1ms
+TIMER2_RATE   EQU (PWM_FREQ*PWM_STEPS)     ; 1000Hz, for a timer tick of 1ms
 TIMER2_RELOAD EQU ((65536-(CLK/16*TIMER2_RATE)))
 
 ORG 0x0000
