@@ -1,7 +1,7 @@
 itscreams and new_oven work together 
 - together they have a working FSM and TIMER
 
-it howls and new new oven fsm 
+it hollers and new new oven fsm 
 - have a possibly working pwm controller 
 
 alternatepwm.asm and alternate oven .inc 
