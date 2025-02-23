@@ -36,14 +36,12 @@ $LIST
 ;
 
 CLK               EQU 16600000 ; Microcontroller system frequency in Hz
-PWM_FREQ 		EQU 100     ; PWM frequency in Hz
-PWM_STEPS		EQU 100     ; Number of steps in the PWM cycle
 BAUD              EQU 115200 ; Baud rate of UART in bps
 TIMER1_RATE         EQU 100      ; 100Hz or 10ms
 TIMER1_RELOAD       EQU (65536-(CLK/(16*TIMER2_RATE))) ; Need to change timer 1 input divide to 16 in T2MOD
 TIMER0_RELOAD_1MS EQU (0x10000-(CLK/1000))
-TIMER2_RATE   EQU (PWM_FREQ*PWM_STEPS)     ; 1000Hz, for a timer tick of 1ms
-TIMER2_RELOAD EQU ((65536-(CLK/16*TIMER2_RATE)))
+TIMER2_RATE   EQU 1000     ; 1000Hz, for a timer tick of 1ms
+TIMER2_RELOAD EQU ((65536-(CLK/TIMER2_RATE)))
 
 ORG 0x0000
 	ljmp main
@@ -237,24 +235,40 @@ Timer2_ISR:
 	push x+2
 	push x+3
 	
-	   
-    inc pwm_counter          ; 0-99 (100 steps)
-    mov a, pwm_counter
-    cjne a, #PWM_STEPS, PWM_Check
-    mov pwm_counter, #0      ; Reset every 100 steps (10ms)
+	; Increment the 16-bit one mili second counter
+	inc Count1ms+0    ; Increment the low 8-bits first
+	mov a, Count1ms+0 ; If the low 8-bits overflow, then increment high 8-bits
+	jnz Inc_Done
+	inc Count1ms+1
 
-    
-    inc seconds              ; Increment every 100 interrupts (1 second)
-    setb seconds_flag     
+Inc_Done: ; pwm control 
 
-PWM_Check:
-    ; Compare counter to duty cycle
-    clr c
-    mov a, pwm_counter
-    subb a, pwm          ; pwm = 0-100
-    mov PWM_OUT, c       ; C=1 if pwm_counter < pwm
+	mov a, Count1ms+1
+	cjne a, #high(1000), PWM_Update
+	mov a, Count1ms+0
+	cjne a, #low(1000), PWM_Update
 	
-    pop x+3
+	; 1 second elapsed
+	clr a
+	mov Count1ms+0, a
+	mov Count1ms+1, a
+	setb seconds_flag
+
+PWM_Update:
+	; === Improved PWM Generation ===
+	inc pwm_counter       ; 0-99 counter (100ms period)
+	mov a, pwm_counter
+	cjne a, #100, PWM_Check
+	mov pwm_counter, #0   ; Reset every 100ms
+    
+PWM_Check:
+	; Simple compare - no multiply needed
+	clr c
+	mov a, pwm_counter
+	subb a, pwm           ; pwm = 0-100
+	mov PWM_OUT, c        ; C=1 when pwm_counter < pwm
+    
+	pop x+3
 	pop x+2
 	pop x+1
 	pop x+0
@@ -265,6 +279,40 @@ PWM_Check:
 	pop psw
 	pop acc
 	reti
+
+	;increment second flag 
+
+	;mov a, seconds
+	;add a, #1
+	;da A
+	;mov seconds, A
+
+
+;Inc_Done:
+	; Check if second has passed
+;	mov a, Count1ms+0
+;	cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
+;	mov a, Count1ms+1
+;	cjne a, #high(1000), Time_increment_done
+	
+	; 1000 milliseconds have passed.  Set a flag so the main program knows
+;	setb seconds_flag ; Let the main program know a second had passed
+	;cpl TR0 ; Enable/disable timer/counter 0. This line creates a beep-silence-beep-silence sound.
+	; Reset to zero the milli-seconds counter, it is a 16-bit variable
+;	clr a
+;	mov Count1ms+0, a
+;	mov Count1ms+1, a
+	; Increment the time only when state flag is on
+	;jnb state, Time_increment_done
+	
+;	mov a, sec
+;	add a, #0x01
+;	da a
+;	mov sec, a
+;	
+;	cjne a, #0x60, Time_increment_done
+
+		
 
 
 
