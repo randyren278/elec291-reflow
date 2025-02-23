@@ -42,7 +42,7 @@
 0000             44   TIMER1_RELOAD       EQU (65536-(CLK/(16*TIMER2_RATE))) ; Need to change timer 1 input divide to 16 in T2MOD
 0000             45   TIMER0_RELOAD_1MS EQU (0x10000-(CLK/1000))
 0000             46   TIMER2_RATE   EQU 100     ; 1000Hz, for a timer tick of 1ms----> change to 100hz for a 10ms period 
-0000             47   TIMER2_RELOAD EQU ((65536-(CLK/16*TIMER2_RATE)))
+0000             47   TIMER2_RELOAD EQU ((65536-(CLK/TIMER2_RATE)))
 0000             48   
 0000             49   ORG 0x0000
 0000 020BB6      50            ljmp main
@@ -294,12 +294,12 @@
 0AF5            204   
 0AF5            205   Timer2_Init:
 0AF5 75C800     206            mov T2CON, #0 ; Stop timer/counter.  Autoreload mode.
-0AF8 75CDE7     207            mov TH2, #high(TIMER2_RELOAD)
+0AF8 75CD78     207            mov TH2, #high(TIMER2_RELOAD)
 0AFB 75CC90     208            mov TL2, #low(TIMER2_RELOAD)
 0AFE            209            ; Set the reload value
 0AFE 75C980     210            mov T2MOD, #1000_0000b 
 0B01            211            ;orl T2MOD, #0x80 ; Enable timer 2 autoreload this was it before
-0B01 75CBE7     212            mov RCMP2H, #high(TIMER2_RELOAD)
+0B01 75CB78     212            mov RCMP2H, #high(TIMER2_RELOAD)
 0B04 75CA90     213            mov RCMP2L, #low(TIMER2_RELOAD)
 0B07            214       
 0B07            215       ; test this 

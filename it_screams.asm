@@ -241,13 +241,15 @@ Timer2_ISR:
 	jnz Inc_Done_randys_version
 	inc Count1ms+1
 
-Inc_Done_randys_version:
+Inc_Done_randys_version: ; pwm control 
 
 	; CODE TO MAKE THE PWM WORK
 	clr c
+	
 	load_x(pwm)
 	load_y(10)
 	lcall mul32
+
 	clr c
 	mov a, x+0
 	subb a, Count1ms+0
@@ -255,6 +257,7 @@ Inc_Done_randys_version:
 	clr c 
 	mov a, x+1
 	subb a, Count1ms+1 ; If pwm_counter <= pwm then c=1
+
 pwm_output:
 	cpl c
 	mov PWM_OUT, c

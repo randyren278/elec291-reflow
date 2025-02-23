@@ -126,6 +126,8 @@ reflow_temp: ds 2
 Count1ms:     ds 2 
 sec: ds 1
 temp: ds 1
+
+runtime_seconds: ds 1 ; running counter for seconds that does not get reset 
 ; 90% sure jesus code is a scam 
 pwm_counter:  ds 1 ; Free running counter 0, 1, 2, ..., 100, 0
 pwm:          ds 1 ; pwm percentage
