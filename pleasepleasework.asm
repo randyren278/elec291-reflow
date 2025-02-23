@@ -238,36 +238,38 @@ Timer2_ISR:
 	; Increment the 16-bit one mili second counter
 	inc Count1ms+0    ; Increment the low 8-bits first
 	mov a, Count1ms+0 ; If the low 8-bits overflow, then increment high 8-bits
-	jnz Inc_Done
+	jnz PWM_Update
 	inc Count1ms+1
 
-Inc_Done: ; pwm control 
-
-	mov a, Count1ms+1
-	cjne a, #high(1000), PWM_Update
-	mov a, Count1ms+0
-	cjne a, #low(1000), PWM_Update
-	
-	; 1 second elapsed
-	clr a
-	mov Count1ms+0, a
-	mov Count1ms+1, a
-	setb seconds_flag
 
 PWM_Update:
-	; === Improved PWM Generation ===
-	inc pwm_counter       ; 0-99 counter (100ms period)
-	mov a, pwm_counter
-	cjne a, #100, PWM_Check
-	mov pwm_counter, #0   ; Reset every 100ms
+    ; Check for 1 second elapsed
+    mov a, Count1ms+1
+    cjne a, #high(1000), PWM_Gen
+    mov a, Count1ms+0
+    cjne a, #low(1000), PWM_Gen
     
-PWM_Check:
+    ; 1 second elapsed
+    clr a
+    mov Count1ms+0, a
+    mov Count1ms+1, a
+    setb seconds_flag
+
+PWM_Gen:
+    ; Improved PWM with 100Hz resolution
+    inc pwm_counter
+    mov a, pwm_counter
+    cjne a, #100, PWM_Output
+    mov pwm_counter, #0
+ 
+
+PWM_Output:
 	; Simple compare - no multiply needed
 	clr c
 	mov a, pwm_counter
 	subb a, pwm           ; pwm = 0-100
 	mov PWM_OUT, c        ; C=1 when pwm_counter < pwm
-    
+
 	pop x+3
 	pop x+2
 	pop x+1
