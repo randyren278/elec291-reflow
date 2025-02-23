@@ -245,7 +245,7 @@ Inc_Done_randys_version: ; pwm control
 
 	; CODE TO MAKE THE PWM WORK
 	clr c
-	
+
 	load_x(pwm)
 	load_y(10)
 	lcall mul32
@@ -560,8 +560,8 @@ select_soak_temp:
     Set_Cursor(2, 11)
     push AR5  ;display current soak temp
 	push_x
-	mov x+0, soak_temp+0
-	mov x+1, soak_temp+1
+	mov x+0, soak_temp
+	mov x+1, #0
 	mov x+2, #0
 	mov x+3, #0
     lcall hex2bcd
@@ -605,8 +605,8 @@ select_reflow_time:
     push AR3 ;set the paramaters for up/down
     push AR4
     push AR5
-    mov R3, #0x2D ;45 min value allowed !check it please
-    mov R4, #0x4B ;75 max value, !check it please, also is the dec? hex?
+    mov R3, #0x00 ;45 min value allowed !check it please
+    mov R4, #0x2D ;75 max value, !check it please, also is the dec? hex?
     mov R5, reflow_time
     lcall up_check
     lcall down_check
@@ -638,7 +638,7 @@ select_reflow_temp:
     push AR4
     push AR5
     mov R3, #0xD9 ;217 DEC ;min value allowed !check it please
-    mov R4, #0xFF ; 255 DEC ;max value, !check it please, also is the dec? hex?
+    mov R4, #0xF0 ; 255 DEC ;max value, !check it please, also is the dec? hex?
     mov R5, reflow_temp
     lcall up_check
     lcall down_check
