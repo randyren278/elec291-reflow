@@ -84,7 +84,7 @@ LCD_D5 equ P0.1
 LCD_D6 equ P0.2
 LCD_D7 equ P0.3
 SOUND_OUT equ P1.5
-PWM_OUT    EQU P1.0 ; Logic 1=oven on
+PWM_OUT    equ P1.0 ; Logic 1=oven on
 
 $NOLIST
 $include(LCD_4bit.inc) ; A library of LCD related functions and utility macros

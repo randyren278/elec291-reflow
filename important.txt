@@ -1,0 +1,15 @@
+itscreams and new_oven work together 
+- together they have a working FSM and TIMER
+
+it hollers and new new oven fsm 
+- have a possibly working pwm controller 
+
+alternatepwm.asm and alternate oven .inc 
+- have another version of a possibly working pwm controller  
+
+otherpwm.asm and otheroven.inc 
+- tests another version of pwm impelmentation 
+
+-------------------------------------------------------------
+
+- serial port intilizationw will be added to a newer file 

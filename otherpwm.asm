@@ -1,7 +1,10 @@
-;please work
-; do not touch functional except for
-; pwm and load_X i think 
+; note to self 
+; alternate pwm.asm is the file 2 that has wcompiling pwm test code 
 
+; further notes in pwm demo.asm 
+
+; pwm counter is cleared in after RCMP timer 2 reload in init all and before ORL eie  
+; counter is done in timer 2 isr
 
 ;with 5 adc push buttons
 ;to think about:
@@ -40,8 +43,8 @@ BAUD              EQU 115200 ; Baud rate of UART in bps
 TIMER1_RATE         EQU 100      ; 100Hz or 10ms
 TIMER1_RELOAD       EQU (65536-(CLK/(16*TIMER2_RATE))) ; Need to change timer 1 input divide to 16 in T2MOD
 TIMER0_RELOAD_1MS EQU (0x10000-(CLK/1000))
-TIMER2_RATE   EQU 1000     ; 1000Hz, for a timer tick of 1ms
-TIMER2_RELOAD EQU ((65536-(CLK/TIMER2_RATE)))
+TIMER2_RATE   EQU 100     ; 1000Hz, for a timer tick of 1ms----> change to 100hz for a 10ms period 
+TIMER2_RELOAD EQU ((65536-(CLK/16*TIMER2_RATE)))
 
 ORG 0x0000
 	ljmp main
@@ -123,6 +126,7 @@ reflow_temp: ds 2
 Count1ms:     ds 2 
 sec: ds 1
 temp: ds 1
+; 90% sure jesus code is a scam 
 pwm_counter:  ds 1 ; Free running counter 0, 1, 2, ..., 100, 0
 pwm:          ds 1 ; pwm percentage
 seconds:      ds 1 ; a seconds counter attached to Timer 2 ISR
@@ -130,7 +134,7 @@ seconds:      ds 1 ; a seconds counter attached to Timer 2 ISR
 $NOLIST
 $include(math32.inc)
 $include(read_temp.inc)
-$include(new_oven_fsm.inc)
+$include(otheroven.inc)
 $LIST
 
 CSEG
@@ -139,7 +143,7 @@ Init_All:
 	mov	P3M1, #0x00
 	mov	P3M2, #0x00
 	mov	P1M1, #0x00
-	mov	P1M2, #0x00
+	mov	P1M2, #0x00 ; test this with #0x01 later 
 	mov	P0M1, #0x00
 	mov	P0M2, #0x00
 	
@@ -207,11 +211,14 @@ Timer2_Init:
 	;orl T2MOD, #0x80 ; Enable timer 2 autoreload this was it before
 	mov RCMP2H, #high(TIMER2_RELOAD)
 	mov RCMP2L, #low(TIMER2_RELOAD)
+    
+    ; test this 
+    mov pwm_counter, #0 
 	; Init One millisecond interrupt counter.  It is a 16-bit variable made with two 8-bit parts
 	clr a
-	mov Count1ms+0, a
-	mov Count1ms+1, a
-	mov sec, #0
+	;mov Count1ms+0, a
+	;mov Count1ms+1, a
+	;mov sec, #0
 	clr seconds_flag
 	; Enable the timer and interrupts
 	orl EIE, #0x80 ; Enable timer 2 interrupt ET2=1
@@ -221,63 +228,134 @@ Timer2_Init:
 ; ISR for timer 2                 ;
 ;---------------------------------;
 Timer2_ISR:
-	clr TF2  ; Timer 2 doesn't clear TF2 automatically. Do it in the ISR.  It is bit addressable.
-	
-	; The two registers used in the ISR must be saved in the stack
-	push acc
-	push psw
-	push y+0
-	push y+1
-	push y+2
-	push y+3
-	push x+0
-	push x+1
-	push x+2
-	push x+3
-	
-	; Increment the 16-bit one mili second counter
-	inc Count1ms+0    ; Increment the low 8-bits first
-	mov a, Count1ms+0 ; If the low 8-bits overflow, then increment high 8-bits
-	jnz Inc_Done_randys_version
-	inc Count1ms+1
+    clr TF2                      ; Clear Timer2 interrupt flag
+    push acc
+    push psw
+    push y+0
+    push y+1
+    push y+2
+    push y+3
+    push x+0
+    push x+1
+    push x+2
+    push x+3
 
-Inc_Done_randys_version:
+    inc pwm_counter              ; Increment PWM counter every 10 ms
+    clr c
+    mov a, pwm                   ; Compare PWM counter with duty cycle
+    subb a, pwm_counter
+    cpl c
+    mov PWM_OUT, c               ; Set PWM output
+
+    mov a, pwm_counter
+    cjne a, #100, Timer2_ISR_Done ; Check if 1 second has passed (100 * 10 ms)
+    mov pwm_counter, #0           ; Reset PWM counter
+    inc seconds                   ; Increment seconds counter
+    setb seconds_flag             ; Set flag indicating a second has passed
+
+Timer2_ISR_Done:
+    pop x+3
+    pop x+2
+    pop x+1
+    pop x+0
+    pop y+3
+    pop y+2
+    pop y+1
+    pop y+0
+    pop psw
+    pop acc
+    reti
+
+;pwm_skip_high:
+	; pwm control usses a 0-100 ms counter for a 100ms period 
+	; The pwm counter is incremented here
+	; also set oven flag 
+	;jnb oven_flag, skip_pwm ; skips the pwm calcaultions if teh oven isnt turned on in the state machine 
+
+
+	;inc pwm_counter
+	;cjne pwm_counter, #100, no_pwm_reset
+	;mov pwm_counter, #0 ;reset when period is 100 ms 
+
+	; attempt to redefine my fucking ass 
+
+;	inc pwm_counter
+
+;	mov a, pwm_counter
+;	cjne a, #100, no_pwm_reset
+;	mov pwm_counter, #0 
+
+	; if this shit doesnt work i swear to god 
+
+;no_pwm_reset:
+	; compares the period counter with pwm "percentage" if the pwm counter is 
+	; less than the pwm then the output is high 
+	; eg. pwm =40 then it will sent on output to pwm for the first 40ms of teh 100ms cycle
+
+;	clr c
+;	mov a, pwm
+;	subb a, pwm_counter ; If pwm_counter <= pwm then c=1
+;	cpl c
+;	mov PWM_OUT, c
+	; set pwm out accordingly 
+	; --------------------------------------------------------------
+	; regular 1second check 
+;	mov a, Count1ms+0
+;	cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
+;	mov a, Count1ms+1
+;	cjne a, #high(1000), Time_increment_done
+
+	; after 1 second has passed 
+
+;	clr a
+;	mov Count1ms+0, a
+;	mov Count1ms+1, a
+
+;	mov a, seconds
+;	addc a, #0 ; It is super easy to keep a seconds count here
+;	mov seconds, A
+
+;	setb seconds_flag
+
+
+
+
 
 	; CODE TO MAKE THE PWM WORK
-	clr c
-	load_x(pwm)
-	load_y(10)
-	lcall mul32
-	clr c
-	mov a, x+0
-	subb a, Count1ms+0
-	jnc pwm_output
-	clr c 
-	mov a, x+1
-	subb a, Count1ms+1 ; If pwm_counter <= pwm then c=1
-pwm_output:
-	cpl c
-	mov PWM_OUT, c
+;	clr c
+;	load_x(pwm)
+;	load_y(10)
+;	lcall mul32
+;	clr c
+;	mov a, x+0
+;	subb a, Count1ms+0
+;	jnc pwm_output
+;	clr c 
+;	mov a, x+1
+;	subb a, Count1ms+1 ; If pwm_counter <= pwm then c=1
+;pwm_output:
+;	cpl c
+;	mov PWM_OUT, c
 
 	;check if 1000 ms has passed 
-	mov a, Count1ms+0
-	cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
-	mov a, Count1ms+1
-	cjne a, #high(1000), Time_increment_done
+;	mov a, Count1ms+0
+;	cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
+;	mov a, Count1ms+1
+;	cjne a, #high(1000), Time_increment_done
 
 	; if1000 ms has passed 
 
-	clr A
-	mov Count1ms+0, A
-	mov Count1ms+1, A
+	;clr A
+;	mov Count1ms+0, A
+	;mov Count1ms+1, A
 
-	mov c, oven_flag
+;	mov c, oven_flag
 	;addc seconds, #0 ; It is super easy to keep a seconds count here
-	mov  A, seconds   ; Load seconds into A
-	addc A, #0       ; Add the carry to A
-	mov  seconds, A   ; Store the result back in seconds
+;	mov  A, seconds   ; Load seconds into A
+;	addc A, #0       ; Add the carry to A
+;	mov  seconds, A   ; Store the result back in seconds
 
-	setb seconds_flag
+;	setb seconds_flag
 
 	;increment second flag 
 
@@ -312,19 +390,6 @@ pwm_output:
 ;	cjne a, #0x60, Time_increment_done
 
 		
-Time_increment_done:
-	pop x+3
-	pop x+2
-	pop x+1
-	pop x+0
-	pop y+3
-	pop y+2
-	pop y+1
-	pop y+0
-	pop psw
-	pop acc
-	reti
-
 
 
 

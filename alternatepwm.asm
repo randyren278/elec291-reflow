@@ -1,7 +1,5 @@
-;please work
-; do not touch functional except for
-; pwm and load_X i think 
-
+; note to self 
+; alternate pwm.asm is the file 2 that has wcompiling pwm test code 
 
 ;with 5 adc push buttons
 ;to think about:
@@ -123,6 +121,7 @@ reflow_temp: ds 2
 Count1ms:     ds 2 
 sec: ds 1
 temp: ds 1
+; 90% sure jesus code is a scam 
 pwm_counter:  ds 1 ; Free running counter 0, 1, 2, ..., 100, 0
 pwm:          ds 1 ; pwm percentage
 seconds:      ds 1 ; a seconds counter attached to Timer 2 ISR
@@ -130,7 +129,7 @@ seconds:      ds 1 ; a seconds counter attached to Timer 2 ISR
 $NOLIST
 $include(math32.inc)
 $include(read_temp.inc)
-$include(new_oven_fsm.inc)
+$include(alternateoven.inc)
 $LIST
 
 CSEG
@@ -139,7 +138,7 @@ Init_All:
 	mov	P3M1, #0x00
 	mov	P3M2, #0x00
 	mov	P1M1, #0x00
-	mov	P1M2, #0x00
+	mov	P1M2, #0x00 ; test this with #0x01 later 
 	mov	P0M1, #0x00
 	mov	P0M2, #0x00
 	
@@ -238,46 +237,99 @@ Timer2_ISR:
 	; Increment the 16-bit one mili second counter
 	inc Count1ms+0    ; Increment the low 8-bits first
 	mov a, Count1ms+0 ; If the low 8-bits overflow, then increment high 8-bits
-	jnz Inc_Done_randys_version
+	jnz pwm_skip_high
 	inc Count1ms+1
 
-Inc_Done_randys_version:
+pwm_skip_high:
+	; pwm control usses a 0-100 ms counter for a 100ms period 
+	; The pwm counter is incremented here
+	; also set oven flag 
+	;jnb oven_flag, skip_pwm ; skips the pwm calcaultions if teh oven isnt turned on in the state machine 
 
-	; CODE TO MAKE THE PWM WORK
+
+	;inc pwm_counter
+	;cjne pwm_counter, #100, no_pwm_reset
+	;mov pwm_counter, #0 ;reset when period is 100 ms 
+
+	; attempt to redefine my fucking ass 
+
+	inc pwm_counter
+
+	mov a, pwm_counter
+	cjne a, #100, no_pwm_reset
+	mov pwm_counter, #0 
+
+	; if this shit doesnt work i swear to god 
+
+no_pwm_reset:
+	; compares the period counter with pwm "percentage" if the pwm counter is 
+	; less than the pwm then the output is high 
+	; eg. pwm =40 then it will sent on output to pwm for the first 40ms of teh 100ms cycle
+
 	clr c
-	load_x(pwm)
-	load_y(10)
-	lcall mul32
-	clr c
-	mov a, x+0
-	subb a, Count1ms+0
-	jnc pwm_output
-	clr c 
-	mov a, x+1
-	subb a, Count1ms+1 ; If pwm_counter <= pwm then c=1
-pwm_output:
+	mov a, pwm
+	subb a, pwm_counter ; If pwm_counter <= pwm then c=1
 	cpl c
 	mov PWM_OUT, c
-
-	;check if 1000 ms has passed 
+	; set pwm out accordingly 
+	; --------------------------------------------------------------
+	; regular 1second check 
 	mov a, Count1ms+0
 	cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
 	mov a, Count1ms+1
 	cjne a, #high(1000), Time_increment_done
 
-	; if1000 ms has passed 
+	; after 1 second has passed 
 
-	clr A
-	mov Count1ms+0, A
-	mov Count1ms+1, A
+	clr a
+	mov Count1ms+0, a
+	mov Count1ms+1, a
 
-	mov c, oven_flag
-	;addc seconds, #0 ; It is super easy to keep a seconds count here
-	mov  A, seconds   ; Load seconds into A
-	addc A, #0       ; Add the carry to A
-	mov  seconds, A   ; Store the result back in seconds
+	mov a, seconds
+	addc a, #0 ; It is super easy to keep a seconds count here
+	mov seconds, A
 
 	setb seconds_flag
+
+
+
+
+
+	; CODE TO MAKE THE PWM WORK
+;	clr c
+;	load_x(pwm)
+;	load_y(10)
+;	lcall mul32
+;	clr c
+;	mov a, x+0
+;	subb a, Count1ms+0
+;	jnc pwm_output
+;	clr c 
+;	mov a, x+1
+;	subb a, Count1ms+1 ; If pwm_counter <= pwm then c=1
+;pwm_output:
+;	cpl c
+;	mov PWM_OUT, c
+
+	;check if 1000 ms has passed 
+;	mov a, Count1ms+0
+;	cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
+;	mov a, Count1ms+1
+;	cjne a, #high(1000), Time_increment_done
+
+	; if1000 ms has passed 
+
+	;clr A
+;	mov Count1ms+0, A
+	;mov Count1ms+1, A
+
+;	mov c, oven_flag
+	;addc seconds, #0 ; It is super easy to keep a seconds count here
+;	mov  A, seconds   ; Load seconds into A
+;	addc A, #0       ; Add the carry to A
+;	mov  seconds, A   ; Store the result back in seconds
+
+;	setb seconds_flag
 
 	;increment second flag 
 
