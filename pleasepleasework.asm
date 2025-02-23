@@ -238,49 +238,55 @@ Timer2_ISR:
 	; Increment the 16-bit one mili second counter
 	inc Count1ms+0    ; Increment the low 8-bits first
 	mov a, Count1ms+0 ; If the low 8-bits overflow, then increment high 8-bits
-	jnz PWM_Update
+	jnz SkipCountHigh
 	inc Count1ms+1
 
 
-PWM_Update:
-    ; Check for 1 second elapsed
-    mov a, Count1ms+1
-    cjne a, #high(1000), PWM_Gen
-    mov a, Count1ms+0
-    cjne a, #low(1000), PWM_Gen
+SkipCountHigh:
+
+    ;-----------------------------
+    ; PWM Control – Compute threshold = pwm*10
+    clr C
+    lcall Load_x(pwm)      ; Load pwm (0–100) into 32-bit register X
+    lcall Load_y(10)       ; Load constant 10 into Y
+    lcall mul32            ; Multiply: result in X = pwm*10 (32-bit)
     
-    ; 1 second elapsed
-    clr a
-    mov Count1ms+0, a
-    mov Count1ms+1, a
+    ; Now compare the 16-bit product (X+0 & X+1) to Count1ms
+    clr C
+    mov A, x+0            ; Low byte of product
+    subb A, Count1ms+0
+    mov A, x+1            ; High byte of product
+    subb A, Count1ms+1
+    cpl C                 ; Invert carry: if no borrow (Count1ms <= pwm*10), C becomes 1.
+    mov PWM_OUT, C        
+
+    ;-----------------------------
+    ; Check if 1000ms have passed to update seconds
+    mov A, Count1ms+0
+    cjne A, #low(1000), TimeIncrementDone
+    mov A, Count1ms+1
+    cjne A, #high(1000), TimeIncrementDone
+    ; 1000ms passed: reset the 1ms counter and update seconds.
+    clr A
+    mov Count1ms+0, A
+    mov Count1ms+1, A
+    mov A, seconds
+    addc A, #0
+    mov seconds, A
     setb seconds_flag
 
-PWM_Gen:
-    ; Improved PWM with 100Hz resolution
-    inc pwm_counter
-    mov a, pwm_counter
-    cjne a, #100, PWM_Output
-    mov pwm_counter, #0
- 
-
-PWM_Output:
-	; Simple compare - no multiply needed
-	clr c
-	mov a, pwm_counter
-	subb a, pwm           ; pwm = 0-100
-	mov PWM_OUT, c        ; C=1 when pwm_counter < pwm
-
-	pop x+3
-	pop x+2
-	pop x+1
-	pop x+0
-	pop y+3
-	pop y+2
-	pop y+1
-	pop y+0
-	pop psw
-	pop acc
-	reti
+TimeIncrementDone:
+    pop x+3
+    pop x+2
+    pop x+1
+    pop x+0
+    pop y+3
+    pop y+2
+    pop y+1
+    pop y+0
+    pop psw
+    pop acc
+    reti
 
 	;increment second flag 
 
