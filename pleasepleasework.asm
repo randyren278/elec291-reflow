@@ -247,8 +247,8 @@ SkipCountHigh:
     ;-----------------------------
     ; PWM Control – Compute threshold = pwm*10
     clr C
-    lcall Load_x(pwm)      ; Load pwm (0–100) into 32-bit register X
-    lcall Load_y(10)       ; Load constant 10 into Y
+    load_x(pwm)      ; Load pwm (0–100) into 32-bit register X
+    load_y(10)       ; Load constant 10 into Y
     lcall mul32            ; Multiply: result in X = pwm*10 (32-bit)
     
     ; Now compare the 16-bit product (X+0 & X+1) to Count1ms
