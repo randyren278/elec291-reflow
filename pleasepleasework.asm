@@ -130,7 +130,7 @@ seconds:      ds 1 ; a seconds counter attached to Timer 2 ISR
 $NOLIST
 $include(math32.inc)
 $include(read_temp.inc)
-$include(please.inc)
+$include(new_oven_fsm.inc)
 $LIST
 
 CSEG
@@ -238,55 +238,49 @@ Timer2_ISR:
 	; Increment the 16-bit one mili second counter
 	inc Count1ms+0    ; Increment the low 8-bits first
 	mov a, Count1ms+0 ; If the low 8-bits overflow, then increment high 8-bits
-	jnz SkipCountHigh
+	jnz Inc_Done_randys_version
 	inc Count1ms+1
 
+Inc_Done_randys_version: ; pwm control 
 
-SkipCountHigh:
+	; CODE TO MAKE THE PWM WORK
+	clr c
+	
+	load_x(pwm)
+	load_y(10)
+	lcall mul32
 
-    ;-----------------------------
-    ; PWM Control – Compute threshold = pwm*10
-    clr C
-    load_x(pwm)      ; Load pwm (0–100) into 32-bit register X
-    load_y(10)       ; Load constant 10 into Y
-    lcall mul32            ; Multiply: result in X = pwm*10 (32-bit)
-    
-    ; Now compare the 16-bit product (X+0 & X+1) to Count1ms
-    clr C
-    mov A, x+0            ; Low byte of product
-    subb A, Count1ms+0
-    mov A, x+1            ; High byte of product
-    subb A, Count1ms+1
-    cpl C                 ; Invert carry: if no borrow (Count1ms <= pwm*10), C becomes 1.
-    mov PWM_OUT, C        
+	clr c
+	mov a, x+0
+	subb a, Count1ms+0
+	jnc pwm_output
+	clr c 
+	mov a, x+1
+	subb a, Count1ms+1 ; If pwm_counter <= pwm then c=1
 
-    ;-----------------------------
-    ; Check if 1000ms have passed to update seconds
-    mov A, Count1ms+0
-    cjne A, #low(1000), TimeIncrementDone
-    mov A, Count1ms+1
-    cjne A, #high(1000), TimeIncrementDone
-    ; 1000ms passed: reset the 1ms counter and update seconds.
-    clr A
-    mov Count1ms+0, A
-    mov Count1ms+1, A
-    mov A, seconds
-    addc A, #0
-    mov seconds, A
-    setb seconds_flag
+pwm_output:
+	cpl c
+	mov PWM_OUT, c
 
-TimeIncrementDone:
-    pop x+3
-    pop x+2
-    pop x+1
-    pop x+0
-    pop y+3
-    pop y+2
-    pop y+1
-    pop y+0
-    pop psw
-    pop acc
-    reti
+	;check if 1000 ms has passed 
+	mov a, Count1ms+0
+	cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
+	mov a, Count1ms+1
+	cjne a, #high(1000), Time_increment_done
+
+	; if1000 ms has passed 
+
+	clr A
+	mov Count1ms+0, A
+	mov Count1ms+1, A
+
+	mov c, oven_flag
+	;addc seconds, #0 ; It is super easy to keep a seconds count here
+	mov  A, seconds   ; Load seconds into A
+	addc A, #0       ; Add the carry to A
+	mov  seconds, A   ; Store the result back in seconds
+
+	setb seconds_flag
 
 	;increment second flag 
 
@@ -321,6 +315,18 @@ TimeIncrementDone:
 ;	cjne a, #0x60, Time_increment_done
 
 		
+Time_increment_done:
+	pop x+3
+	pop x+2
+	pop x+1
+	pop x+0
+	pop y+3
+	pop y+2
+	pop y+1
+	pop y+0
+	pop psw
+	pop acc
+	reti
 
 
 
