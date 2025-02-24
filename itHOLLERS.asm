@@ -251,7 +251,7 @@ penispenispenis:
 	cjne a, #100, PWM_check
 	mov period, #0
 
-	:update tjat counter 
+	;update tjat counter 
 	inc pwm_period_counter
 	mov a, pwm_period_counter
 	cjne a, #10, PWM_check

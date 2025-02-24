@@ -1,18 +1,8 @@
-itscreams and new_oven work together 
-- together they have a working FSM and TIMER
-- lack pwm and load_X issue 
+please please pleae has working pwm non functinoal seconds 
 
-it hollers and new new oven fsm 
-- have a possibly working pwm controller 
-
-alternatepwm.asm and alternate oven .inc 
-- have another version of a possibly working pwm controller  
-
-otherpwm.asm and otheroven.inc 
-- tests another version of pwm impelmentation 
-
-- this last one is most likely to work
+it screams has unctinoal seconds non functional pwm 
 
 -------------------------------------------------------------
 
 - serial port intilizationw will be added to a newer file 
+

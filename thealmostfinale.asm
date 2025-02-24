@@ -37,16 +37,34 @@ $LIST
 
 CLK               EQU 16600000 ; Microcontroller system frequency in Hz
 BAUD              EQU 115200 ; Baud rate of UART in bps
-TIMER1_RATE         EQU 100      ; 100Hz or 10ms
-TIMER1_RELOAD       EQU (65536-(CLK/(16*TIMER2_RATE))) ; Need to change timer 1 input divide to 16 in T2MOD
+TIMER1_RATE         EQU 1000      ; 100Hz or 10ms
+TIMER1_RELOAD       EQU (65536-(CLK/(TIMER1_RATE))) ; Need to change timer 1 input divide to 16 in T2MOD
 TIMER0_RELOAD_1MS EQU (0x10000-(CLK/1000))
-TIMER2_RATE   EQU 1000     ; 1000Hz, for a timer tick of 1ms
-TIMER2_RELOAD EQU ((65536-(CLK/TIMER2_RATE)))
+TIMER2_RATE   EQU 100     ; 1000Hz, for a timer tick of 1ms
+TIMER2_RELOAD EQU (65536-(CLK/(16*TIMER2_RATE)))
 
 ORG 0x0000
 	ljmp main
+
+ORG 0x0003
+    reti
+
+ORG 0x000B
+    reti
+
+ORG 0x0013
+    reti
+	
+
+ORG 0x001B
+	reti
+
+ORG 0x0023 ; serial port 
+    ljmp Timer1_ISR
+
 ORG 0x002B
 	ljmp Timer2_ISR
+
 
 ;                     1234567890123456    <- This helps determine the location of the counter
 title:            db '  here we go!  ', 0
@@ -87,7 +105,7 @@ LCD_D5 equ P0.1
 LCD_D6 equ P0.2
 LCD_D7 equ P0.3
 SOUND_OUT equ P1.5
-PWM_OUT    EQU P1.0 ; Logic 1=oven on
+PWM_OUT   EQU P1.0 ; Logic 1=oven on
 
 $NOLIST
 $include(LCD_4bit.inc) ; A library of LCD related functions and utility macros
@@ -143,12 +161,19 @@ Init_All:
 	mov	P0M1, #0x00
 	mov	P0M2, #0x00
 	
-	orl	CKCON, #0x10 ; CLK is the input for timer 1
-	orl	PCON, #0x80 ; Bit SMOD=1, double baud rate
-	mov	SCON, #0x52
-	anl	T3CON, #0b11011111
-	anl	TMOD, #0x0F ; Clear the configuration bits for timer 1
-	orl	TMOD, #0x20 ; Timer 1 Mode 2
+;	orl	CKCON, #0x10 ; CLK is the input for timer 1
+;	orl	PCON, #0x80 ; Bit SMOD=1, double baud rate
+;	mov	SCON, #0x52
+;	anl	T3CON, #0b11011111
+;	anl	TMOD, #0x0F ; Clear the configuration bits for timer 1
+;	orl	TMOD, #0x20 ; Timer 1 Mode 2
+    ; Timer 1 for 1ms ticks
+    clr TR1  ; Stop timer 1
+    mov TMOD, #0x10 ; Timer 1 Mode 1 (16-bit)
+    mov TH1, #high(TIMER1_RELOAD)
+    mov TL1, #low(TIMER1_RELOAD)
+    setb ET1  ; Enable Timer 1 interrupt
+    setb TR1  ; Start Timer 1
 	
 	; Using timer 0 for delay functions.  Initialize here:
 	clr	TR0 ; Stop timer 0
@@ -161,7 +186,10 @@ Init_All:
 	; AIN0 is connected to P1.7.  Configure P1.7 as input.
 	orl	P1M1, #0b10000000
 	anl	P1M2, #0b01111111
-	
+
+    mov pwm_counter, #0
+	mov pwm, #0
+
 	; AINDIDS select if some pins are analog inputs or digital I/O:
 	mov AINDIDS, #0x00 ; Disable all analog inputs
 	orl AINDIDS, #0b00000001 ; Using AIN0
@@ -198,6 +226,39 @@ Display_formated_BCD:
     Display_BCD(bcd+0)  
     ret
 
+Timer1_ISR:
+    clr TF1 ; Clear overflow flag
+    
+    ; Increment millisecond counter
+    inc Count1ms+0
+    mov a, Count1ms+0
+    jnz Timer1_ISR_Done
+    inc Count1ms+1
+    
+    ; If 1000ms has passed, increment seconds
+    mov a, Count1ms+1
+    cjne a, #high(1000), Timer1_ISR_Done
+    mov a, Count1ms+0
+    cjne a, #low(1000), Timer1_ISR_Done
+    
+    mov Count1ms+0,#0
+    mov Count1ms+1,#0
+    inc seconds
+    setb seconds_flag
+
+Timer1_ISR_Done:
+	pop x+3
+	pop x+2
+	pop x+1
+	pop x+0
+	pop y+3
+	pop y+2
+	pop y+1
+	pop y+0
+	pop psw
+	pop acc
+	reti 
+
 Timer2_Init:
 	mov T2CON, #0 ; Stop timer/counter.  Autoreload mode.
 	mov TH2, #high(TIMER2_RELOAD)
@@ -208,18 +269,19 @@ Timer2_Init:
 	mov RCMP2H, #high(TIMER2_RELOAD)
 	mov RCMP2L, #low(TIMER2_RELOAD)
 	; Init One millisecond interrupt counter.  It is a 16-bit variable made with two 8-bit parts
-	clr a
-	mov Count1ms+0, a
-	mov Count1ms+1, a
-	mov seconds, #0
-	clr seconds_flag
+;	clr a
+;	mov Count1ms+0, a
+;	mov Count1ms+1, a
+;	mov seconds, #0
+;	clr seconds_flag
 	; Enable the timer and interrupts
-	orl EIE, #0x80 ; Enable timer 2 interrupt ET2=1
+;	orl EIE, #0x80 ; Enable timer 2 interrupt ET2=1
     setb TR2  ; Enable timer 2
 	ret
 ;---------------------------------;
 ; ISR for timer 2                 ;
 ;---------------------------------;
+	
 Timer2_ISR:
 	clr TF2  ; Timer 2 doesn't clear TF2 automatically. Do it in the ISR.  It is bit addressable.
 	
@@ -235,52 +297,21 @@ Timer2_ISR:
 	push x+2
 	push x+3
 	
-	; Increment the 16-bit one mili second counter
-	inc Count1ms+0    ; Increment the low 8-bits first
-	mov a, Count1ms+0 ; If the low 8-bits overflow, then increment high 8-bits
-	jnz Inc_Done_randys_version
-	inc Count1ms+1
-
-Inc_Done_randys_version: ; pwm control 
-
-	; CODE TO MAKE THE PWM WORK
+    inc pwm_counter
 	clr c
-
-	load_x(pwm)
-	load_y(10)
-	lcall mul32
-
-	clr c
-	mov a, x+0
-	subb a, Count1ms+0
-	jnc pwm_output
-	clr c 
-	mov a, x+1
-	subb a, Count1ms+1 ; If pwm_counter <= pwm then c=1
-
-pwm_output:
+	mov a, pwm
+	subb a, pwm_counter ; If pwm_counter <= pwm then c=1
 	cpl c
 	mov PWM_OUT, c
+	
+	mov a, pwm_counter
+	cjne a, #100, Timer2_ISR_done
+	mov pwm_counter, #0
+	;inc seconds ; It is super easy to keep a seconds count here
+	;setb seconds_flag
+   
+    ;inc seconds ; It is super easy to keep a seconds count here
 
-	;check if 1000 ms has passed 
-	mov a, Count1ms+0
-	cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
-	mov a, Count1ms+1
-	cjne a, #high(1000), Time_increment_done
-
-	; if1000 ms has passed 
-
-	clr A
-	mov Count1ms+0, A
-	mov Count1ms+1, A
-
-	mov c, oven_flag
-	;addc seconds, #0 ; It is super easy to keep a seconds count here
-	mov  A, seconds   ; Load seconds into A
-	addc A, #0       ; Add the carry to A
-	mov  seconds, A   ; Store the result back in seconds
-
-	setb seconds_flag
 
 	;increment second flag 
 
@@ -315,7 +346,7 @@ pwm_output:
 ;	cjne a, #0x60, Time_increment_done
 
 		
-Time_increment_done:
+Timer2_ISR_done:
 	pop x+3
 	pop x+2
 	pop x+1
