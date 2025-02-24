@@ -1,6 +1,8 @@
 $NOLIST
 $MODN76E003
 $LIST
+
+; penis
 title:            db '  here we go!  ', 0
 blank:            db '                ', 0
 swait_message1:   db 'Set your values ', 0
