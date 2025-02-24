@@ -164,6 +164,7 @@ reflow_state:
 ;-------------------------------------
 ; Displays a message
 mov seconds, #0
+mov pwm, #0
 cooldown_state:
     Set_Cursor(1, 1)
     Send_Constant_String(#oven_fsm_message_4)
