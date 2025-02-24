@@ -1,5 +1,5 @@
 @echo off
 C:
 cd "\Users\randy\developer\elec291-reflow\"
-"C:\CrossIDE\Call51\Bin\a51.exe" -l "C:\Users\randy\developer\elec291-reflow\it_screams.asm"
-echo Crosside_Action Set_Hex_File C:\Users\randy\developer\elec291-reflow\it_screams.HEX
+"C:\CrossIDE\Call51\Bin\a51.exe" -l "C:\Users\randy\developer\elec291-reflow\thealmostfinale.asm"
+echo Crosside_Action Set_Hex_File C:\Users\randy\developer\elec291-reflow\thealmostfinale.HEX

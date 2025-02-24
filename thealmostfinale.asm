@@ -38,7 +38,7 @@ $LIST
 CLK               EQU 16600000 ; Microcontroller system frequency in Hz
 BAUD              EQU 115200 ; Baud rate of UART in bps
 TIMER1_RATE         EQU 1000      ; 100Hz or 10ms
-TIMER1_RELOAD       EQU (65536-(CLK/(TIMER2_RATE))) ; Need to change timer 1 input divide to 16 in T2MOD
+TIMER1_RELOAD       EQU (65536-(CLK/(TIMER1_RATE))) ; Need to change timer 1 input divide to 16 in T2MOD
 TIMER0_RELOAD_1MS EQU (0x10000-(CLK/1000))
 TIMER2_RATE   EQU 100     ; 1000Hz, for a timer tick of 1ms
 TIMER2_RELOAD EQU (65536-(CLK/(16*TIMER2_RATE)))
@@ -170,7 +170,8 @@ Init_All:
 	anl	P1M2, #0b01111111
 
     mov pwm_counter, #0
-	
+	mov pwm, #0
+
 	; AINDIDS select if some pins are analog inputs or digital I/O:
 	mov AINDIDS, #0x00 ; Disable all analog inputs
 	orl AINDIDS, #0b00000001 ; Using AIN0
@@ -222,8 +223,8 @@ Timer1_ISR:
     mov a, Count1ms+0
     cjne a, #low(1000), Timer1_ISR_Done
     
-    clr Count1ms+0
-    clr Count1ms+1
+    mov Count1ms+0,#0
+    mov Count1ms+1,#0
     inc seconds
     setb seconds_flag
 
