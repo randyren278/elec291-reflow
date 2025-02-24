@@ -57,10 +57,10 @@ ORG 0x0013
 	
 
 ORG 0x001B
-	ljmp Timer1_ISR
+	reti
 
 ORG 0x0023 ; serial port 
-    reti
+    ljmp Timer1_ISR
 
 ORG 0x002B
 	ljmp Timer2_ISR
