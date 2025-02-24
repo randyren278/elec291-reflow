@@ -158,7 +158,8 @@ InitSerialPort_Delay:
     anl T3CON, #0b11011111
     anl TMOD, #0x0F          ; Clear Timer1 configuration bits
     orl TMOD, #0x20          ; Timer1 Mode 2 (8-bit auto-reload)
-    mov TH1, #TIMER1_RELOAD
+    mov	TH1, #high(TIMER1_RELOAD)
+	mov	TL1,#low(TIMER1_RELOAD)
     setb TR1                ; Start Timer1
     ret
 
@@ -248,6 +249,7 @@ Init_All:
 	anl	TMOD, #0x0F ; Clear the configuration bits for timer 1
 	orl	TMOD, #0x20 ; Timer 1 Mode 2
 	
+
 	; Using timer 0 for delay functions.  Initialize here:
 	clr	TR0 ; Stop timer 0
 	orl	CKCON,#0x08 ; CLK is the input for timer 0
