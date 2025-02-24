@@ -206,7 +206,7 @@ Timer2_Init:
 	mov TH2, #high(TIMER2_RELOAD)
 	mov TL2, #low(TIMER2_RELOAD)
 	; Set the reload value
-	mov T2MOD, #1000_0000b 
+	mov T2MOD, #1010_0000b ; !WIP could be causing timing issue?
 	;orl T2MOD, #0x80 ; Enable timer 2 autoreload this was it before
 	mov RCMP2H, #high(TIMER2_RELOAD)
 	mov RCMP2L, #low(TIMER2_RELOAD)
@@ -230,14 +230,8 @@ Timer2_ISR:
 	; The two registers used in the ISR must be saved in the stack
 	push acc
 	push psw
-	push y+0
-	push y+1
-	push y+2
-	push y+3
-	push x+0
-	push x+1
-	push x+2
-	push x+3
+	push_y
+	push_x
 	
     inc pwm_counter
 	clr c
@@ -289,14 +283,8 @@ Timer2_ISR:
 
 		
 Timer2_ISR_done:
-	pop x+3
-	pop x+2
-	pop x+1
-	pop x+0
-	pop y+3
-	pop y+2
-	pop y+1
-	pop y+0
+	pop_x
+	pop_y
 	pop psw
 	pop acc
 	reti

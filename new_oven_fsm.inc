@@ -45,15 +45,9 @@ ramp_to_soak:
     mov x+3, #0
     Load_y(10000)
     lcall mul32
-    push x+0
-    push x+1
-    push x+2
-    push x+3
+    push_x
     lcall temp_into_y
-    pop x+3
-    pop x+2
-    pop x+1
-    pop x+0
+    pop_x
     clr mf
     lcall x_lteq_y
     
@@ -70,12 +64,26 @@ soak_state:
 	Set_Cursor(2, 1)
     Send_Constant_String(#blank)
     ; Does state duties
+    mov x+0, seconds
+    mov x+1, #0
+    mov x+2, #0
+    mov x+3, #0
+    lcall hex2bcd
+    Set_Cursor(2, 1)
+    display_Bcd(bcd+4)
+    display_Bcd(bcd+3)
+    display_Bcd(bcd+2)
+    display_Bcd(bcd+1)
+    display_Bcd(bcd+0)
+
     mov pwm, #20
     ; Transitions to next state
     clr c
     mov a, #60
     subb a, seconds
-    jnc soak_state
+    jnc $+4
+    sjmp $+5
+    ljmp soak_state
 ;-------------------------------------
 ; Ramp to peak
 ;-------------------------------------
@@ -131,12 +139,26 @@ reflow_state:
 	Set_Cursor(2, 1)
     Send_Constant_String(#blank)
     ; Does state duties
+    mov x+0, seconds
+    mov x+1, #0
+    mov x+2, #0
+    mov x+3, #0
+    lcall hex2bcd
+    Set_Cursor(2, 1)
+    display_Bcd(bcd+4)
+    display_Bcd(bcd+3)
+    display_Bcd(bcd+2)
+    display_Bcd(bcd+1)
+    display_Bcd(bcd+0)
+
     mov pwm, #20
     ; Transitions to next state
     clr c
     mov a, #45
     subb a, seconds
-    jnc reflow_state
+    jnc $+4
+    sjmp $+5
+    ljmp reflow_state
 ;-------------------------------------
 ; Cool down
 ;-------------------------------------
