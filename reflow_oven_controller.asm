@@ -37,11 +37,11 @@ $LIST
 
 CLK               EQU 16600000 ; Microcontroller system frequency in Hz
 BAUD              EQU 115200 ; Baud rate of UART in bps
-TIMER1_RATE         EQU 1000      ; 100Hz or 10ms
-TIMER1_RELOAD       EQU (65536-(CLK/(16*TIMER1_RATE))) ; Need to change timer 1 input divide to 16 in T2MOD
+TIMER1_RELOAD EQU (0x100-(CLK/(16*BAUD))) ; Need to change timer 1 input divide to 16 in T2MOD
 TIMER0_RELOAD_1MS EQU (0x10000-(CLK/1000))
 TIMER2_RATE   EQU 100     ; 1000Hz, for a timer tick of 1ms
 TIMER2_RELOAD EQU (65536-(CLK/(16*TIMER2_RATE)))
+
 
 ORG 0x0000
 	ljmp main
@@ -132,6 +132,7 @@ $NOLIST
 $include(math32.inc)
 $include(read_temp.inc)
 $include(oven_fsm.inc)
+$include(serial.inc)
 $LIST
 
 CSEG
@@ -144,13 +145,21 @@ Init_All:
 	mov	P0M1, #0x00
 	mov	P0M2, #0x00
 	
+	; Could be useful if reset errors !HELP
+	mov R1, #200
+    mov R0, #104
+    djnz R0, $   ; 4 cycles->4*60.285ns*104=25us
+    djnz R1, $-4 ; 25us*200=5.0ms
+
 	orl	CKCON, #0x10 ; CLK is the input for timer 1
 	orl	PCON, #0x80 ; Bit SMOD=1, double baud rate
 	mov	SCON, #0x52
 	anl	T3CON, #0b11011111
 	anl	TMOD, #0x0F ; Clear the configuration bits for timer 1
 	orl	TMOD, #0x20 ; Timer 1 Mode 2
-	
+	mov	TH1, #TIMER1_RELOAD
+	setb TR1
+
 	; Using timer 0 for delay functions.  Initialize here:
 	clr	TR0 ; Stop timer 0
 	orl	CKCON,#0x08 ; CLK is the input for timer 0

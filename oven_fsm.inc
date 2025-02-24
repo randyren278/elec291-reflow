@@ -19,22 +19,26 @@ FSM_Init:
 ;-------------------------------------
 ; Ramp to Soak State - DONT YOU DARE TOUCH ANYTHING, EVERYTHING WORKS OTHER THAN LOADING SOAK_TEMP INTO X
 ;-------------------------------------
+Set_Cursor(1, 1)
+Send_Constant_String(#oven_fsm_message_0)
+Set_Cursor(2, 1)
+Send_Constant_String(#blank)
+lcall init_characters
 ramp_to_soak:
     ; Displays a message
-    Set_Cursor(1, 1)
-    Send_Constant_String(#oven_fsm_message_0)
-	Set_Cursor(2, 1)
-    Send_Constant_String(#blank)
-    
     lcall temp_into_x
-    lcall hex2bcd
-    Send_Constant_String(#blank)
-    Set_Cursor(2, 1)
-    display_Bcd(bcd+4)
-    display_Bcd(bcd+3)
-    display_Bcd(bcd+2)
-    display_Bcd(bcd+1)
-    display_Bcd(bcd+0)
+    mov y+0, soak_temp
+    mov y+1, #0
+    mov y+2, #0
+    mov y+3, #0
+    heating_progress
+    ;lcall hex2bcd
+    ;Set_Cursor(2, 1)
+    ;display_Bcd(bcd+4)
+    ;display_Bcd(bcd+3)
+    ;display_Bcd(bcd+2)
+    ;display_Bcd(bcd+1)
+    ;display_Bcd(bcd+0)
 	;lcall rst_check
     ; Do state duties
     mov pwm, #100
@@ -57,12 +61,12 @@ ramp_to_soak:
 ; Soak_state
 ;-------------------------------------
 mov seconds, #0
+Set_Cursor(1, 1)
+Send_Constant_String(#oven_fsm_message_1)
+Set_Cursor(2, 1)
+Send_Constant_String(#blank)
 soak_state:
     ; Displays a message
-    Set_Cursor(1, 1)
-    Send_Constant_String(#oven_fsm_message_1)
-	Set_Cursor(2, 1)
-    Send_Constant_String(#blank)
     ; Does state duties
     mov x+0, seconds
     mov x+1, #0
@@ -88,12 +92,12 @@ soak_state:
 ; Ramp to peak
 ;-------------------------------------
 mov seconds, #0
+Set_Cursor(1, 1)
+Send_Constant_String(#oven_fsm_message_2)
+Set_Cursor(2, 1)
+Send_Constant_String(#blank)
 ramp_to_peak:
     ; Displays a message
-    Set_Cursor(1, 1)
-    Send_Constant_String(#oven_fsm_message_2)
-	Set_Cursor(2, 1)
-    Send_Constant_String(#blank)
     
     lcall temp_into_x
     lcall hex2bcd
@@ -132,12 +136,12 @@ ramp_to_peak:
 ; Reflow
 ;-------------------------------------
 mov seconds, #0
+Set_Cursor(1, 1)
+Send_Constant_String(#oven_fsm_message_3)
+Set_Cursor(2, 1)
+Send_Constant_String(#blank)
 reflow_state:
     ; Displays a message
-    Set_Cursor(1, 1)
-    Send_Constant_String(#oven_fsm_message_3)
-	Set_Cursor(2, 1)
-    Send_Constant_String(#blank)
     ; Does state duties
     mov x+0, seconds
     mov x+1, #0
@@ -165,15 +169,14 @@ reflow_state:
 ; Displays a message
 mov seconds, #0
 mov pwm, #0
+Set_Cursor(1, 1)
+Send_Constant_String(#oven_fsm_message_4)
+Set_Cursor(2, 1)
+Send_Constant_String(#blank)
 cooldown_state:
-    Set_Cursor(1, 1)
-    Send_Constant_String(#oven_fsm_message_4)
-	Set_Cursor(2, 1)
-    Send_Constant_String(#blank)
     
     lcall temp_into_x
     lcall hex2bcd
-    Send_Constant_String(#blank)
     Set_Cursor(2, 1)
     display_Bcd(bcd+4)
     display_Bcd(bcd+3)
@@ -208,11 +211,11 @@ cooldown_state:
 ; Finished - Returns to main when next is pressed
 ;-------------------------------------
 mov seconds, #0
+Set_Cursor(1, 1)
+Send_Constant_String(#done_message)
+Set_Cursor(2, 1)
+Send_Constant_String(#blank)
 finished_state:
-    Set_Cursor(1, 1)
-    Send_Constant_String(#done_message)
-	Set_Cursor(2, 1)
-    Send_Constant_String(#blank)
     MOV R2, #255
     lcall waitms
     lcall waitms

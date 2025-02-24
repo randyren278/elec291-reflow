@@ -518,9 +518,6 @@ Forever:
     lcall hex2bcd
     lcall Serial_formatted_BCD
 
-
-
-
 	; Wait 50 ms between readings
 	mov R2, #50
 	lcall waitms
