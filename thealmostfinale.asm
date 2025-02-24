@@ -45,10 +45,22 @@ TIMER2_RELOAD EQU (65536-(CLK/(16*TIMER2_RATE)))
 
 ORG 0x0000
 	ljmp main
+
+ORG 0x0003
+    reti
+
+ORG 0x000B
+    reti
+
+ORG 0x0013
+    reti
 	
 
 ORG 0x001B
 	ljmp Timer1_ISR
+
+ORG 0x0023 ; serial port 
+    reti
 
 ORG 0x002B
 	ljmp Timer2_ISR
