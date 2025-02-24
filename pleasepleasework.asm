@@ -213,7 +213,7 @@ Timer2_Init:
 	clr a
 	mov Count1ms+0, a
 	mov Count1ms+1, a
-	mov sec, #0
+	mov seconds, #0
 	clr seconds_flag
 	; Enable the timer and interrupts
 	orl EIE, #0x80 ; Enable timer 2 interrupt ET2=1
@@ -238,44 +238,17 @@ Timer2_ISR:
 	push x+2
 	push x+3
 	
-    inc Count1ms+0
-    mov a, Count1ms+0
-    jnz pwm_control
-    inc Count1ms+1
-
-pwm_control:
-
-	inc pwm_counter
+    inc pwm_counter
 	clr c
 	mov a, pwm
 	subb a, pwm_counter ; If pwm_counter <= pwm then c=1
-    jc pwm_output
-
-pwm_output: 
-
 	cpl c
-
 	mov PWM_OUT, c
 	
 	mov a, pwm_counter
 	cjne a, #100, Timer2_ISR_done
 	mov pwm_counter, #0
-    ;inc seconds
-    ;setb seconds_flag
-	
-	mov a, Count1ms+0
-	cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
-	mov a, Count1ms+1
-	cjne a, #high(1000), Time_increment_done
-
-    clr A
-	mov Count1ms+0, A
-	mov Count1ms+1, A
-
-    mov  A, seconds   ; Load seconds into A
-	addc A, #0       ; Add the carry to A
-	mov  seconds, A   ; Store the result back in seconds
-
+	inc seconds ; It is super easy to keep a seconds count here
 	setb seconds_flag
    
     ;inc seconds ; It is super easy to keep a seconds count here
