@@ -45,8 +45,14 @@ TIMER2_RELOAD EQU (65536-(CLK/(16*TIMER2_RATE)))
 
 ORG 0x0000
 	ljmp main
+	
+
+ORG 0x001B
+	ljmp Timer1_ISR
+
 ORG 0x002B
 	ljmp Timer2_ISR
+
 
 ;                     1234567890123456    <- This helps determine the location of the counter
 title:            db '  here we go!  ', 0
