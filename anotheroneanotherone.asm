@@ -1,29 +1,117 @@
+
+
+    ;please work
+; do not touch functional except for
+; pwm and load_X i think 
+
+
+;with 5 adc push buttons
+;to think about:
+	;adding another state for when start is pressed so that in forever if it gets sent back to FSM_select
+	;it will know not to ask for input/go through it
+	;making the checks into macros
+
+;button functions: rst, next, up, down, start/stop
+;display which you're in 
+;start-> in the selecting fsm
+;stop-> after reset_state in the oven fsm
+
+; 76E003 ADC_Pushbuttons.asm: Reads push buttons using the ADC, AIN0 in P1.7
+
 $NOLIST
 $MODN76E003
 $LIST
 
-; Define constants and equates
+;  N76E003 pinout:
+;                               -------
+;       PWM2/IC6/T0/AIN4/P0.5 -|1    20|- P0.4/AIN5/STADC/PWM3/IC3
+;               TXD/AIN3/P0.6 -|2    19|- P0.3/PWM5/IC5/AIN6
+;               RXD/AIN2/P0.7 -|3    18|- P0.2/ICPCK/OCDCK/RXD_1/[SCL]
+;                    RST/P2.0 -|4    17|- P0.1/PWM4/IC4/MISO
+;        INT0/OSCIN/AIN1/P3.0 -|5    16|- P0.0/PWM3/IC3/MOSI/T1
+;              INT1/AIN0/P1.7 -|6    15|- P1.0/PWM2/IC2/SPCLK
+;                         GND -|7    14|- P1.1/PWM1/IC1/AIN7/CLO
+;[SDA]/TXD_1/ICPDA/OCDDA/P1.6 -|8    13|- P1.2/PWM0/IC0
+;                         VDD -|9    12|- P1.3/SCL/[STADC]
+;            PWM5/IC7/SS/P1.5 -|10   11|- P1.4/SDA/FB/PWM1
+;                               -------
+;
+
 CLK               EQU 16600000 ; Microcontroller system frequency in Hz
 BAUD              EQU 115200 ; Baud rate of UART in bps
-TIMER1_RATE       EQU 1000     ; 1000Hz for 1ms interrupt
-TIMER1_RELOAD     EQU (65536 - (CLK / TIMER1_RATE))
-TIMER0_RELOAD_1MS EQU (0x10000 - (CLK / 1000))
-TIMER2_RATE       EQU 100      ; 100Hz for 10ms interrupt
-TIMER2_RELOAD     EQU (65536 - (CLK / (16 * TIMER2_RATE)))
+TIMER1_RATE         EQU 100      ; 100Hz or 10ms
+TIMER1_RELOAD       EQU (65536-(CLK/(16*TIMER2_RATE))) ; Need to change timer 1 input divide to 16 in T2MOD
+TIMER0_RELOAD_1MS EQU (0x10000-(CLK/1000))
+TIMER2_RATE   EQU 1000     ; 1000Hz, for a timer tick of 1ms
+TIMER2_RELOAD EQU ((65536-(CLK/TIMER2_RATE)))
 
-; Define bit variables
+ORG 0x0000
+	ljmp main
+ORG 0x002B
+	ljmp Timer2_ISR
+
+;                     1234567890123456    <- This helps determine the location of the counter
+title:            db '  here we go!  ', 0
+blank:            db '                ', 0
+swait_message1:   db 'Set your values ', 0   ;s->select fsm, wait->state
+swait_message2:   db 'Press next      ', 0
+sstime_message1:  db 'Select soak time', 0   ;s->soak
+sstime_message2:  db 'Soak time:      ', 0
+sstemp_message1:  db 'Select soak temp', 0   ;s->soak
+sstemp_message2:  db 'Soak temp:      ', 0
+srtime_message1:  db 'Select refl time', 0   ;r->reflow
+srtime_message2:  db 'Refl time:      ', 0
+srtemp_message1:  db 'Select refl temp', 0   ;r->reflow
+srtemp_message2:  db 'Refl temp:      ', 0
+too_high_message: db 'max!     ', 0
+too_low_message:  db 'min!     ', 0
+forever_message:  db 'hello please', 0
+its_works:        db 'die',0
+done_message: 	  db 'done!',0
+stop_message: 	  db 'stopped!',0
+					   ;1234567890123456
+oven_fsm_message_0: db 'Oven State 0!   ',0
+oven_fsm_message_1: db 'Oven State 1!   ',0
+oven_fsm_message_2: db 'Oven State 2!   ',0
+oven_fsm_message_3: db 'Oven State 3!   ',0
+oven_fsm_message_4: db 'Oven State 4!   ',0
+oven_fsm_message_5: db 'Oven State 5!   ',0
+;						   1234567890123456
+reset_state_message:   db 'Settings Reset! ', 0 ;for testing
+state1_message:   db 'state1          ', 0 ;for testing
+
+cseg
+; These 'equ' must match the hardware wiring
+LCD_RS equ P1.3
+LCD_E  equ P1.4
+LCD_D4 equ P0.0
+LCD_D5 equ P0.1
+LCD_D6 equ P0.2
+LCD_D7 equ P0.3
+SOUND_OUT equ P1.5
+PWM_OUT    EQU P1.0 ; Logic 1=oven on
+
+$NOLIST
+$include(LCD_4bit.inc) ; A library of LCD related functions and utility macros
+$include(state_machine.inc)
+$LIST
+
 BSEG
-S_S: dbit 1
-DOWN: dbit 1
-UP: dbit 1
-NXT: dbit 1
-RST: dbit 1
+; These eight bit variables store the value of the pushbuttons after calling 'ADC_to_PB' below
+;PB0: dbit 1 
+;PB1: dbit 1     pretty sure left-right is 7-0
+;PB2: dbit 1
+S_S: dbit 1 ;PB3
+DOWN: dbit 1 ;PB4
+UP: dbit 1 ;PB5
+NXT: dbit 1 ;PB6
+RST: dbit 1 ;PB7
 mf: dbit 1
 seconds_flag: dbit 1
-s_flag: dbit 1
+s_flag: dbit 1 ; set to 1 every time a second has passed
 oven_flag: dbit 1
 
-; Define data segment
+;TODO: check if one is enough
 DSEG at 30H
 x: ds 4
 y: ds 4
@@ -34,139 +122,110 @@ soak_time: ds 1
 soak_temp: ds 1
 reflow_time: ds 1
 reflow_temp: ds 2
-Count1ms: ds 2
+Count1ms:     ds 2 
 sec: ds 1
 temp: ds 1
-pwm_counter: ds 1
-pwm: ds 1
-seconds: ds 1
+pwm_counter:  ds 1 ; Free running counter 0, 1, 2, ..., 100, 0
+pwm:          ds 1 ; pwm percentage
+seconds:      ds 1 ; a seconds counter attached to Timer 2 ISR
 
-; Include necessary libraries
 $NOLIST
-$include(LCD_4bit.inc)
-$include(state_machine.inc)
 $include(math32.inc)
 $include(read_temp.inc)
 $include(new_oven_fsm.inc)
 $LIST
 
-; Define LCD and other pin equates
-LCD_RS equ P1.3
-LCD_E  equ P1.4
-LCD_D4 equ P0.0
-LCD_D5 equ P0.1
-LCD_D6 equ P0.2
-LCD_D7 equ P0.3
-SOUND_OUT equ P1.5
-PWM_OUT   EQU P1.0
-
-; String constants for LCD display
-title:            db '  here we go!  ', 0
-blank:            db '                ', 0
-swait_message1:   db 'Set your values ', 0
-swait_message2:   db 'Press next      ', 0
-sstime_message1:  db 'Select soak time', 0
-sstime_message2:  db 'Soak time:      ', 0
-sstemp_message1:  db 'Select soak temp', 0
-sstemp_message2:  db 'Soak temp:      ', 0
-srtime_message1:  db 'Select refl time', 0
-srtime_message2:  db 'Refl time:      ', 0
-srtemp_message1:  db 'Select refl temp', 0
-srtemp_message2:  db 'Refl temp:      ', 0
-too_high_message: db 'max!     ', 0
-too_low_message:  db 'min!     ', 0
-forever_message:  db 'hello please', 0
-its_works:        db 'die',0
-done_message:     db 'done!',0
-stop_message:     db 'stopped!',0
-oven_fsm_message_0: db 'Oven State 0!   ',0
-oven_fsm_message_1: db 'Oven State 1!   ',0
-oven_fsm_message_2: db 'Oven State 2!   ',0
-oven_fsm_message_3: db 'Oven State 3!   ',0
-oven_fsm_message_4: db 'Oven State 4!   ',0
-oven_fsm_message_5: db 'Oven State 5!   ',0
-reset_state_message: db 'Settings Reset! ', 0
-state1_message:   db 'state1          ', 0
-
-; Code segment starts here
 CSEG
+Init_All:
+	; Configure all the pins for biderectional I/O
+	mov	P3M1, #0x00
+	mov	P3M2, #0x00
+	mov	P1M1, #0x00
+	mov	P1M2, #0x00
+	mov	P0M1, #0x00
+	mov	P0M2, #0x00
+	
+	orl	CKCON, #0x10 ; CLK is the input for timer 1
+	orl	PCON, #0x80 ; Bit SMOD=1, double baud rate
+	mov	SCON, #0x52
+	anl	T3CON, #0b11011111
+	anl	TMOD, #0x0F ; Clear the configuration bits for timer 1
+	orl	TMOD, #0x20 ; Timer 1 Mode 2
+	
+	; Using timer 0 for delay functions.  Initialize here:
+	clr	TR0 ; Stop timer 0
+	orl	CKCON,#0x08 ; CLK is the input for timer 0
+	anl	TMOD,#0xF0 ; Clear the configuration bits for timer 0
+	orl	TMOD,#0x01 ; Timer 0 in Mode 1: 16-bit timer
+	
+	; Initialize and start the ADC:
+	
+	; AIN0 is connected to P1.7.  Configure P1.7 as input.
+	orl	P1M1, #0b10000000
+	anl	P1M2, #0b01111111
+	
+	; AINDIDS select if some pins are analog inputs or digital I/O:
+	mov AINDIDS, #0x00 ; Disable all analog inputs
+	orl AINDIDS, #0b00000001 ; Using AIN0
+	orl ADCCON1, #0x01 ; Enable ADC
 
-; Interrupt vectors must be defined in ascending order
-ORG 0x0000
-    ljmp main
+	; timer 2 ?? 
+	lcall Timer2_Init
+	setb EA
 
-ORG 0x001B  ; Timer 1 interrupt vector
-    ljmp Timer1_ISR
+	
+	ret
+	
+wait_1ms:
+	clr	TR0 ; Stop timer 0
+	clr	TF0 ; Clear overflow flag
+	mov	TH0, #high(TIMER0_RELOAD_1MS)
+	mov	TL0,#low(TIMER0_RELOAD_1MS)
+	setb TR0
+	jnb	TF0, $ ; Wait for overflow
+	ret
 
-ORG 0x002B  ; Timer 2 interrupt vector
-    ljmp Timer2_ISR
+; Wait the number of miliseconds in R2
+waitms:
+	lcall wait_1ms
+	djnz R2, waitms
+	ret
 
-; Main program starts here
-main:
-    mov sp, #0x7f
-    lcall Temp_Init_All
-    lcall Init_All
-    lcall LCD_4BIT
-    lcall state_init ; From State_Machine.inc
+;set cursor before, also might have to change format	
+Display_formated_BCD:  
+    ;Display_BCD(bcd+4) 
+    ;Display_BCD(bcd+3) 
+    Display_BCD(bcd+2) 
+    Display_BCD(bcd+1) 
+    Display_BCD(bcd+0)  
+    ret
 
-    ; Initial messages in LCD
-    Set_Cursor(1, 1)
-    Send_Constant_String(#title)
-    Set_Cursor(2, 1)
-    Send_Constant_String(#blank)
-
-    mov R2, #250
-    lcall waitms
-
-Forever:
-    ; Wait 50 ms between readings
-    mov R2, #50
-    lcall waitms
-
-    ; Check if a second has passed
-    jnb seconds_flag, no_second
-    clr seconds_flag
-    cpl P1.5
-
-no_second:
-    mov R2, #50
-    lcall waitms
-
-    ljmp FSM_select
-
-; Timer 1 ISR
-Timer1_ISR:
-    clr TF1 ; Clear overflow flag
-    ; Increment millisecond counter
-    inc Count1ms+0
-    mov a, Count1ms+0
-    jnz Timer1_ISR_Done
-    inc Count1ms+1
-    ; If 1000ms has passed, increment seconds
-    mov a, Count1ms+1
-    cjne a, #high(1000), Timer1_ISR_Done
-    mov a, Count1ms+0
-    cjne a, #low(1000), Timer1_ISR_Done
-    mov Count1ms+0, #0
-    mov Count1ms+1, #0
-    inc seconds
-    setb seconds_flag
-Timer1_ISR_Done:
-    pop x+3
-    pop x+2
-    pop x+1
-    pop x+0
-    pop y+3
-    pop y+2
-    pop y+1
-    pop y+0
-    pop psw
-    pop acc
-    reti
-
-; Timer 2 ISR
+Timer2_Init:
+	mov T2CON, #0 ; Stop timer/counter.  Autoreload mode.
+	mov TH2, #high(TIMER2_RELOAD)
+	mov TL2, #low(TIMER2_RELOAD)
+	; Set the reload value
+	mov T2MOD, #1000_0000b 
+	;orl T2MOD, #0x80 ; Enable timer 2 autoreload this was it before
+	mov RCMP2H, #high(TIMER2_RELOAD)
+	mov RCMP2L, #low(TIMER2_RELOAD)
+	; Init One millisecond interrupt counter.  It is a 16-bit variable made with two 8-bit parts
+	clr a
+	mov Count1ms+0, a
+	mov Count1ms+1, a
+	mov seconds, #0
+	clr seconds_flag
+	; Enable the timer and interrupts
+	orl EIE, #0x80 ; Enable timer 2 interrupt ET2=1
+    setb TR2  ; Enable timer 2
+	ret
+;---------------------------------;
+; ISR for timer 2                 ;
+;---------------------------------;
 Timer2_ISR:
-    clr TF2
+    clr TF2  ; Clear Timer 2 overflow flag
+
+    ; Save registers
     push acc
     push psw
     push y+0
@@ -177,16 +236,45 @@ Timer2_ISR:
     push x+1
     push x+2
     push x+3
+
+    ; Increment the 16-bit one millisecond counter
+    inc Count1ms+0
+    mov a, Count1ms+0
+    jnz Inc_Done
+    inc Count1ms+1
+
+Inc_Done:
+    ; PWM Control Logic
     inc pwm_counter
     clr c
-    mov a, pwm
-    subb a, pwm_counter
-    cpl c
-    mov PWM_OUT, c
     mov a, pwm_counter
-    cjne a, #100, Timer2_ISR_done
-    mov pwm_counter, #0
-Timer2_ISR_done:
+    subb a, #100
+    jc PWM_On  ; If pwm_counter < 100, turn on PWM
+    clr PWM_OUT  ; Else, turn off PWM
+    mov pwm_counter, #0  ; Reset pwm_counter
+    sjmp PWM_Done
+
+PWM_On:
+    setb PWM_OUT  ; Turn on PWM
+
+PWM_Done:
+    ; Check if 1000 ms (1 second) has passed
+    mov a, Count1ms+0
+    cjne a, #low(1000), Time_increment_done
+    mov a, Count1ms+1
+    cjne a, #high(1000), Time_increment_done
+
+    ; Reset the 1-second counter
+    clr a
+    mov Count1ms+0, a
+    mov Count1ms+1, a
+
+    ; Increment the seconds counter
+    inc seconds
+    setb seconds_flag
+
+Time_increment_done:
+    ; Restore registers
     pop x+3
     pop x+2
     pop x+1
@@ -199,358 +287,427 @@ Timer2_ISR_done:
     pop acc
     reti
 
-; Initialization routine
-Init_All:
-    ; Configure pins for bidirectional I/O
-    mov P3M1, #0x00
-    mov P3M2, #0x00
-    mov P1M1, #0x00
-    mov P1M2, #0x00
-    mov P0M1, #0x00
-    mov P0M2, #0x00
 
-    ; Timer 1 setup
-    clr TR1
-    mov TMOD, #0x10 ; Timer 1 Mode 1 (16-bit)
-    mov TH1, #high(TIMER1_RELOAD)
-    mov TL1, #low(TIMER1_RELOAD)
-    setb ET1 ; Enable Timer 1 interrupt
-    setb TR1 ; Start Timer 1
 
-    ; Timer 0 for delays
-    clr TR0
-    orl CKCON, #0x08 ; CLK for timer 0
-    anl TMOD, #0xF0 ; Clear Timer 0 bits
-    orl TMOD, #0x01 ; Timer 0 Mode 1 (16-bit)
 
-    ; ADC setup
-    orl P1M1, #0b10000000 ; P1.7 as input
-    anl P1M2, #0b01111111
-    mov pwm_counter, #0
-    mov pwm, #0
-    mov AINDIDS, #0x00
-    orl AINDIDS, #0b00000001 ; Enable AIN0
-    orl ADCCON1, #0x01 ; Enable ADC
 
-    ; Timer 2 setup
-    lcall Timer2_Init
-    setb EA ; Enable global interrupts
-    ret
 
-; Wait 1ms using Timer 0
-wait_1ms:
-    clr TR0
-    clr TF0
-    mov TH0, #high(TIMER0_RELOAD_1MS)
-    mov TL0, #low(TIMER0_RELOAD_1MS)
-    setb TR0
-    jnb TF0, $
-    ret
 
-; Wait for R2 milliseconds
-waitms:
-    lcall wait_1ms
-    djnz R2, waitms
-    ret
-
-; Display formatted BCD
-Display_formated_BCD:
-    Display_BCD(bcd+2)
-    Display_BCD(bcd+1)
-    Display_BCD(bcd+0)
-    ret
-
-; Timer 2 initialization
-Timer2_Init:
-    mov T2CON, #0 ; Stop timer
-    mov TH2, #high(TIMER2_RELOAD)
-    mov TL2, #low(TIMER2_RELOAD)
-    mov T2MOD, #0x80 ; Enable autoreload
-    mov RCMP2H, #high(TIMER2_RELOAD)
-    mov RCMP2L, #low(TIMER2_RELOAD)
-    setb TR2 ; Start Timer 2
-    ret
-
-; ADC to pushbutton conversion
 ADC_to_PB:
-    push acc
-    anl ADCCON0, #0xF0
-    orl ADCCON0, #0x00 ; Select AIN0
-    clr ADCF
-    setb ADCS
-    jnb ADCF, $
-    setb RST
-    setb NXT
-    setb UP
-    setb DOWN
-    setb S_S
-    ; Check for button presses based on ADC value
-    clr c
-    mov a, ADCRH
-    subb a, #0xb0
-    jc ADC_to_PB_L4
-    clr RST
-    sjmp ADC_to_PB_Done
-ADC_to_PB_L4:
-    clr c
-    mov a, ADCRH
-    subb a, #0x90
-    jc ADC_to_PB_L3
-    clr NXT
-    sjmp ADC_to_PB_Done
-ADC_to_PB_L3:
-    clr c
-    mov a, ADCRH
-    subb a, #0x70
-    jc ADC_to_PB_L2
-    clr UP
-    sjmp ADC_to_PB_Done
-ADC_to_PB_L2:
-    clr c
-    mov a, ADCRH
-    subb a, #0x50
-    jc ADC_to_PB_L1
-    clr DOWN
-    sjmp ADC_to_PB_Done
-ADC_to_PB_L1:
-    clr c
-    mov a, ADCRH
-    subb a, #0x30
-    jc ADC_to_PB_Done
-    clr S_S
-ADC_to_PB_Done:
-    pop acc
-    ret
+	push acc
+	anl ADCCON0, #0xF0
+	orl ADCCON0, #0x00 ; Select AIN0
+	
+	clr ADCF
+	setb ADCS   ; ADC start trigger signal
+    jnb ADCF, $ ; Wait for conversion complete
 
-; FSM_select logic
+	setb RST;PB7
+	setb NXT;PB6
+	setb UP;PB5
+	setb DOWN;PB4
+	setb S_S;PB3
+	;setb PB2
+	;setb PB1
+	;setb PB0
+	
+	; Check PB7
+;ADC_to_PB_L7:
+;	clr c
+;	mov a, ADCRH
+;	subb a, #0xf0
+;	jc ADC_to_PB_L6
+;	clr RST;PB7
+;	ret
+;
+;	; Check PB6
+;ADC_to_PB_L6:
+;	clr c
+;	mov a, ADCRH
+;	subb a, #0xd0
+;	jc ADC_to_PB_L5
+;	clr NXT;PB6
+;	ret
+
+	; Check PB5
+ADC_to_PB_L5:
+	clr c
+	mov a, ADCRH
+	subb a, #0xb0
+	jc ADC_to_PB_L4
+	clr RST;PB5
+	pop acc
+	ret
+
+	; Check PB4
+ADC_to_PB_L4:
+	clr c
+	mov a, ADCRH
+	subb a, #0x90
+	jc ADC_to_PB_L3
+	clr NXT;PB4
+	pop acc
+	ret
+
+	; Check PB3
+ADC_to_PB_L3:
+	clr c
+	mov a, ADCRH
+	subb a, #0x70
+	jc ADC_to_PB_L2
+	clr UP;PB3
+	pop acc
+	ret
+
+	; Check PB2
+ADC_to_PB_L2:
+	clr c
+	mov a, ADCRH
+	subb a, #0x50
+	jc ADC_to_PB_L1
+	clr DOWN
+	pop acc
+	ret
+
+	; Check PB1
+ADC_to_PB_L1:
+	clr c
+	mov a, ADCRH
+	subb a, #0x30
+	jc ADC_to_PB_L0
+	clr S_S
+	pop acc
+	ret
+
+	; Check PB0
+ADC_to_PB_L0:
+	clr c
+	mov a, ADCRH
+	subb a, #0x10
+	jc ADC_to_PB_Done
+	;clr PB0
+	pop acc
+	ret
+	
+ADC_to_PB_Done:
+	; No pusbutton pressed	
+	pop acc
+	ret
+	
+main:
+	mov sp, #0x7f
+	lcall Temp_Init_All
+	lcall Init_All
+    lcall LCD_4BIT
+    
+    lcall state_init ;From State_Machine.inc
+    
+    ; initial messages in LCD
+	Set_Cursor(1, 1)
+    Send_Constant_String(#Title)
+	Set_Cursor(2, 1)
+    Send_Constant_String(#blank)
+
+	mov R2, #250
+	lcall waitms
+	
+Forever:
+	; Wait 50 ms between readings
+	mov R2, #50
+	lcall waitms
+
+	; output? 
+	jnb seconds_flag, no_second
+	clr seconds_flag
+	cpl P1.5
+
+no_second:
+
+	mov R2, #50
+	lcall waitms
+
+	ljmp FSM_select
+
+	;Set_Cursor(2, 11)
+	;mov r0, #80
+	;mov x+0, r0
+	;mov x+1, #0 
+	;mov x+2, #0
+	;mov x+3, #0
+	;lcall hex2bcd
+	;lcall Display_formated_BCD
+	
+	;check if reaches forever
+	;Set_Cursor(1, 1)
+	;Send_Constant_String(#forever_message)
+	;mov R2, #250
+	;lcall waitms
+	;ljmp FSM_select
+
+;no_second:
+;	ljmp Forever
+
+;for testing since there's no other fsm right now
+
+
+;begin select FSM
 FSM_select:
-    mov a, selecting_state
-    cjne a, #0, select_soak_time
-    Set_Cursor(1, 1)
+	mov a, selecting_state
+
+select_wait:
+	cjne a, #0, select_soak_time ;checks the state
+	Set_Cursor(1, 1)
     Send_Constant_String(#swait_message1)
-    Set_Cursor(2, 1)
+	Set_Cursor(2, 1)
     Send_Constant_String(#swait_message2)
-    mov R2, #250
-    lcall waitms
+	mov R2, #250
+	lcall waitms
+    ;lcall ADC_to_PB ;checks for button press
     lcall rst_check
     lcall nxt_check
     lcall s_s_check
-    ljmp Forever
+    ljmp forever ;i believe 
+
+select_soak_temp_ah:
+	ljmp select_soak_temp
 
 select_soak_time:
-    cjne a, #1, select_soak_temp
-    Set_Cursor(1, 1)
+	cjne a, #1, select_soak_temp_ah ;checks the state
+	Set_Cursor(1, 1)
     Send_Constant_String(#sstime_message1)
-    Set_Cursor(2, 1)
+	Set_Cursor(2, 1)
     Send_Constant_String(#sstime_message2)
-    Set_Cursor(2, 11)
+    ;Set_Cursor(2, 11)
+    push AR5  ;display the current soak_time
+    mov R5, x
     mov x+0, soak_time
-    mov x+1, #0
-    mov x+2, #0
-    mov x+3, #0
+	mov x+1, #0
+	mov x+2, #0
+	mov x+3, #0
+	Set_Cursor(2, 11)
+	;Send_Constant_String(#its_works)
     lcall hex2bcd
     lcall Display_formated_BCD
+    mov x, R5
+    pop AR5
+    ;lcall ADC_to_PB ;checks for button press
     lcall rst_check
-    push AR3
+    push AR3 ;set the paramaters for up/down
     push AR4
     push AR5
-    mov R3, #0x3C ; Min soak time
-    mov R4, #0x78 ; Max soak time
+    mov R3, #0x3C ;min value allowed for soak time !check it please
+    mov R4, #0x78 ;120  ;max value, !check it please, also is the dec? hex?
     mov R5, soak_time
     lcall up_check
     lcall down_check
     mov soak_time, R5
     pop AR5
     pop AR4
-    pop AR3
+    pop AR3  ;am i doing this right?
     lcall s_s_check
     lcall nxt_check
-    ljmp Forever
+    ljmp forever ;i believe 
 
 select_soak_temp:
-    cjne a, #2, select_reflow_time
-    Set_Cursor(1, 1)
+	cjne a, #2, $+6 ;checks the state
+	ljmp $+6
+	ljmp select_reflow_time
+	Set_Cursor(1, 1)
     Send_Constant_String(#sstemp_message1)
-    Set_Cursor(2, 1)
+	Set_Cursor(2, 1)
     Send_Constant_String(#sstemp_message2)
     Set_Cursor(2, 11)
-    mov x+0, soak_temp
-    mov x+1, #0
-    mov x+2, #0
-    mov x+3, #0
+    push AR5  ;display current soak temp
+	push_x
+	mov x+0, soak_temp
+	mov x+1, #0
+	mov x+2, #0
+	mov x+3, #0
     lcall hex2bcd
     lcall Display_formated_BCD
+    ;mov x, R5
+	pop_x
+    ;lcall ADC_to_PB ;checks for button press
     lcall rst_check
-    push AR3
+    push AR3 ;set the paramaters for up/down
     push AR4
     push AR5
-    mov R3, #0x96 ; Min soak temp
-    mov R4, #0xC8 ; Max soak temp
+    mov R3, #0x96 ;min value allowed !check it please (150 decimal)
+    mov R4, #0xC8 ;max value, !check it please, also is the dec? hex? (200 decimal)
     mov R5, soak_temp
     lcall up_check
     lcall down_check
     mov soak_temp, R5
     pop AR5
     pop AR4
-    pop AR3
+    pop AR3  ;am i doing this right?
     lcall s_s_check
     lcall nxt_check
-    ljmp Forever
+    ljmp forever ;i believe 
 
 select_reflow_time:
-    cjne a, #3, select_reflow_temp
-    Set_Cursor(1, 1)
+	cjne a, #3, select_reflow_temp ;checks the state
+	Set_Cursor(1, 1)
     Send_Constant_String(#srtime_message1)
-    Set_Cursor(2, 1)
+	Set_Cursor(2, 1)
     Send_Constant_String(#srtime_message2)
     Set_Cursor(2, 11)
-    mov x+0, reflow_time
-    mov x+1, #0
-    mov x+2, #0
-    mov x+3, #0
+    push AR5  ;display current reflow time
+    mov R5, x
+    mov x, reflow_time
     lcall hex2bcd
     lcall Display_formated_BCD
+    mov x, R5
+    pop AR5
+    ;lcall ADC_to_PB ;checks for button press
     lcall rst_check
-    push AR3
+    push AR3 ;set the paramaters for up/down
     push AR4
     push AR5
-    mov R3, #0x00 ; Min reflow time
-    mov R4, #0x2D ; Max reflow time
+    mov R3, #0x00 ;45 min value allowed !check it please
+    mov R4, #0x2D ;75 max value, !check it please, also is the dec? hex?
     mov R5, reflow_time
     lcall up_check
     lcall down_check
     mov reflow_time, R5
     pop AR5
     pop AR4
-    pop AR3
+    pop AR3  ;am i doing this right?
     lcall s_s_check
     lcall nxt_check
-    ljmp Forever
+    ljmp forever ;i believe 
 
 select_reflow_temp:
-    Set_Cursor(1, 1)
+	;shouldn't need to check the state
+	Set_Cursor(1, 1)
     Send_Constant_String(#srtemp_message1)
-    Set_Cursor(2, 1)
+	Set_Cursor(2, 1)
     Send_Constant_String(#srtemp_message2)
     Set_Cursor(2, 11)
-    mov x+0, reflow_temp
-    mov x+1, #0
-    mov x+2, #0
-    mov x+3, #0
+    push AR5  ;display current reflow temp
+    mov R5, x
+    mov x, reflow_temp
     lcall hex2bcd
     lcall Display_formated_BCD
+    mov x, R5
+    pop AR5
+    ;lcall ADC_to_PB ;checks for button press
     lcall rst_check
-    push AR3
+    push AR3  ;set the paramaters for up/down
     push AR4
     push AR5
-    mov R3, #0xD9 ; Min reflow temp
-    mov R4, #0xF0 ; Max reflow temp
+    mov R3, #0xD9 ;217 DEC ;min value allowed !check it please
+    mov R4, #0xF0 ; 255 DEC ;max value, !check it please, also is the dec? hex?
     mov R5, reflow_temp
     lcall up_check
     lcall down_check
     mov reflow_temp, R5
     pop AR5
     pop AR4
-    pop AR3
+    pop AR3  ;am i doing this right?
     lcall s_s_check
     lcall nxt_check
-    ljmp Forever
+    ljmp forever ;i believe 
 
-; Button check routines
+;maybe make these macros :(
+;use R3 & R4 & R5 as parameters
 rst_check:
-    lcall ADC_to_PB
-    mov c, RST
-    jnc rst_check_0
+	lcall ADC_to_PB
+	mov c, RST
+    jnc rst_check_0 ;!could be jc
     ret
 rst_check_0:
-    ljmp reset_state
+    ljmp reset_state ;or whatever it's called, wait state of oven fsm
 
 nxt_check:
-    lcall ADC_to_PB
-    mov c, NXT
-    jnc next_check_1
-    ret
-next_check_1:
-    mov x, selecting_state
-    mov x+1, #0
-    mov x+2, #0
-    mov x+3, #0
-    mov y, #0x04
-    mov y+1, #0
-    mov y+2, #0
-    mov y+3, #0
+	lcall ADC_to_PB
+	mov c, NXT
+    jnc next_check_1 
+	ret
+next_check_1: 
+    ;load_x(selecting_state)
+    ;load_y(4)
+	mov x, selecting_state
+	mov x+1, #0
+	mov x+2, #0
+	mov x+3, #0
+	mov y, #0x04
+	mov y+1, #0
+	mov y+2, #0
+	mov y+3, #0
     lcall x_eq_y
-    setb c
-    jb mf, next_check_2
-    mov a, selecting_state
-    addc a, #0
+	setb c
+	jb mf, next_check_2
+    mov a, selecting_state 
+    addc a, #0 ;uh
     mov selecting_state, a
     ret
 next_check_2:
-    clr c
-    mov selecting_state, #0
-    ret
+	clr c
+	mov selecting_state, #0 ;can't go above 4 (there are 5 states)
 
-up_check:
-    lcall ADC_to_PB
-    mov c, UP
-    jnc up_check_1
-    ret
+	ret
+
+up_check: ;R4 max
+	lcall ADC_to_PB
+	mov c, UP
+	jnc up_check_1
+	ret 
 up_check_1:
-    mov x, R4
-    mov x+1, #0
-    mov x+2, #0
-    mov x+3, #0
-    mov y, R5
-    mov y+1, #0
-    mov y+2, #0
-    mov y+3, #0
-    lcall x_gt_y
-    setb c
-    jnb mf, up_check_2
-    mov a, R5
-    addc a, #0
-    mov R5, a
-    ret
+	mov x, R4
+	mov x+1, #0
+	mov x+2, #0
+	mov x+3, #0
+	mov y, R5
+	mov y+1, #0
+	mov y+2, #0
+	mov y+3, #0
+	lcall x_gt_y ;max > value
+	setb c
+	jnb mf, up_check_2
+	mov a, R5
+	addc a, #0 ;dec? hex?
+	mov R5, a
+	ret
 up_check_2:
-    clr c
-    Set_Cursor(2, 11)
-    Send_Constant_String(#too_high_message)
-    ret
+	clr c
+	Set_Cursor(2, 11)
+	Send_Constant_string(#too_high_message)
+	ret
 
-down_check:
-    lcall ADC_to_PB
-    mov c, DOWN
-    jnc down_check_1
-    ret
+down_check: ;R3 min
+	lcall ADC_to_PB
+	mov c, DOWN
+	jnc down_check_1
+	ret
 down_check_1:
-    mov x, R3
-    mov x+1, #0
-    mov x+2, #0
-    mov x+3, #0
-    mov y, R5
-    mov y+1, #0
-    mov y+2, #0
-    mov y+3, #0
-    lcall x_lt_y
-    setb c
-    jnb mf, down_check_2
-    mov a, R5
-    subb a, #0
-    mov R5, a
-    ret
+	mov x, R3
+	mov x+1, #0
+	mov x+2, #0
+	mov x+3, #0
+	mov y, R5
+	mov y+1, #0
+	mov y+2, #0
+	mov y+3, #0
+	lcall x_lt_y ;min < value
+	setb c
+	jnb mf, down_check_2
+	mov a, R5
+	subb a, #0 ;dec? hex?
+	mov R5, a
+	ret
 down_check_2:
-    clr c
-    Set_Cursor(2, 11)
-    Send_Constant_String(#too_low_message)
-    ret
+	clr c
+	Set_Cursor(2, 11)
+	Send_Constant_string(#too_low_message)
+	ret
 
 s_s_check:
-    lcall ADC_to_PB
-    mov c, S_S
-    jnc s_s_check_done
-    ret
+	lcall ADC_to_PB
+	mov c, S_S
+	jnc s_s_check_done ;!could be jb
+	ret
 s_s_check_done:
-    ljmp FSM_Init
+	ljmp FSM_Init ;or whatever it's called, 1st state of oven FSM
 
 END
