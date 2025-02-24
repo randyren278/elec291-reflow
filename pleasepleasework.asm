@@ -87,7 +87,7 @@ LCD_D5 equ P0.1
 LCD_D6 equ P0.2
 LCD_D7 equ P0.3
 SOUND_OUT equ P1.5
-PWM_OUT    EQU P1.0 ; Logic 1=oven on
+PWM_OUT   EQU P1.0 ; Logic 1=oven on
 
 $NOLIST
 $include(LCD_4bit.inc) ; A library of LCD related functions and utility macros
@@ -161,6 +161,8 @@ Init_All:
 	; AIN0 is connected to P1.7.  Configure P1.7 as input.
 	orl	P1M1, #0b10000000
 	anl	P1M2, #0b01111111
+
+    mov pwm_counter, #0
 	
 	; AINDIDS select if some pins are analog inputs or digital I/O:
 	mov AINDIDS, #0x00 ; Disable all analog inputs
@@ -220,6 +222,7 @@ Timer2_Init:
 ;---------------------------------;
 ; ISR for timer 2                 ;
 ;---------------------------------;
+	
 Timer2_ISR:
 	clr TF2  ; Timer 2 doesn't clear TF2 automatically. Do it in the ISR.  It is bit addressable.
 	
@@ -235,52 +238,19 @@ Timer2_ISR:
 	push x+2
 	push x+3
 	
-	; Increment the 16-bit one mili second counter
-	inc Count1ms+0    ; Increment the low 8-bits first
-	mov a, Count1ms+0 ; If the low 8-bits overflow, then increment high 8-bits
-	jnz Inc_Done_randys_version
-	inc Count1ms+1
-
-Inc_Done_randys_version: ; pwm control 
-
-	; CODE TO MAKE THE PWM WORK
+	inc pwm_counter
 	clr c
-	
-	load_x(pwm)
-	load_y(10)
-	lcall mul32
-
-	clr c
-	mov a, x+0
-	subb a, Count1ms+0
-	jnc pwm_output
-	clr c 
-	mov a, x+1
-	subb a, Count1ms+1 ; If pwm_counter <= pwm then c=1
-
-pwm_output:
+	mov a, pwm
+	subb a, pwm_counter ; If pwm_counter <= pwm then c=1
 	cpl c
 	mov PWM_OUT, c
-
-	;check if 1000 ms has passed 
-	mov a, Count1ms+0
-	cjne a, #low(1000), Time_increment_done ; Warning: this instruction changes the carry flag!
-	mov a, Count1ms+1
-	cjne a, #high(1000), Time_increment_done
-
-	; if1000 ms has passed 
-
-	clr A
-	mov Count1ms+0, A
-	mov Count1ms+1, A
-
-	mov c, oven_flag
-	;addc seconds, #0 ; It is super easy to keep a seconds count here
-	mov  A, seconds   ; Load seconds into A
-	addc A, #0       ; Add the carry to A
-	mov  seconds, A   ; Store the result back in seconds
-
+	
+	mov a, pwm_counter
+	cjne a, #100, Timer2_ISR_done
+	mov pwm_counter, #0
+	inc seconds ; It is super easy to keep a seconds count here
 	setb seconds_flag
+
 
 	;increment second flag 
 
@@ -315,7 +285,7 @@ pwm_output:
 ;	cjne a, #0x60, Time_increment_done
 
 		
-Time_increment_done:
+Timer2_ISR_done:
 	pop x+3
 	pop x+2
 	pop x+1
@@ -560,8 +530,8 @@ select_soak_temp:
     Set_Cursor(2, 11)
     push AR5  ;display current soak temp
 	push_x
-	mov x+0, soak_temp+0
-	mov x+1, soak_temp+1
+	mov x+0, soak_temp
+	mov x+1, #0
 	mov x+2, #0
 	mov x+3, #0
     lcall hex2bcd
@@ -605,8 +575,8 @@ select_reflow_time:
     push AR3 ;set the paramaters for up/down
     push AR4
     push AR5
-    mov R3, #0x2D ;45 min value allowed !check it please
-    mov R4, #0x4B ;75 max value, !check it please, also is the dec? hex?
+    mov R3, #0x00 ;45 min value allowed !check it please
+    mov R4, #0x2D ;75 max value, !check it please, also is the dec? hex?
     mov R5, reflow_time
     lcall up_check
     lcall down_check
@@ -638,7 +608,7 @@ select_reflow_temp:
     push AR4
     push AR5
     mov R3, #0xD9 ;217 DEC ;min value allowed !check it please
-    mov R4, #0xFF ; 255 DEC ;max value, !check it please, also is the dec? hex?
+    mov R4, #0xF0 ; 255 DEC ;max value, !check it please, also is the dec? hex?
     mov R5, reflow_temp
     lcall up_check
     lcall down_check
