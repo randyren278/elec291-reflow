@@ -92,6 +92,7 @@ PWM_OUT   EQU P1.0 ; Logic 1=oven on
 $NOLIST
 $include(LCD_4bit.inc) ; A library of LCD related functions and utility macros
 $include(state_machine.inc)
+$include(progress_bar.inc)
 $LIST
 
 BSEG
