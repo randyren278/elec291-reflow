@@ -158,8 +158,8 @@ InitSerialPort_Delay:
     anl T3CON, #0b11011111
     anl TMOD, #0x0F          ; Clear Timer1 configuration bits
     orl TMOD, #0x20          ; Timer1 Mode 2 (8-bit auto-reload)
-    mov	TH1, #high(IMER1_RELOAD)
-	mov	TL1,#low(IMER1_RELOAD)
+    mov	TH1, #high(TIMER1_RELOAD)
+	mov	TL1,#low(TIMER1_RELOAD)
     setb TR1                ; Start Timer1
     ret
 
