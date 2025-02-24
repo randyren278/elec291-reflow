@@ -1,4 +1,4 @@
-;just a rough little draft
+;Great file that always works
 
 cseg
 oven_state_init:
