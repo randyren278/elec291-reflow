@@ -31,14 +31,14 @@ ramp_to_soak:
     mov y+1, #0
     mov y+2, #0
     mov y+3, #0
-    heating_progress
-    ;lcall hex2bcd
-    ;Set_Cursor(2, 1)
-    ;display_Bcd(bcd+4)
-    ;display_Bcd(bcd+3)
-    ;display_Bcd(bcd+2)
-    ;display_Bcd(bcd+1)
-    ;display_Bcd(bcd+0)
+    ;heating_progress
+    lcall hex2bcd
+    Set_Cursor(2, 1)
+    display_Bcd(bcd+4)
+    display_Bcd(bcd+3)
+    display_Bcd(bcd+2)
+    display_Bcd(bcd+1)
+    display_Bcd(bcd+0)
 	;lcall rst_check
     ; Do state duties
     mov pwm, #100
