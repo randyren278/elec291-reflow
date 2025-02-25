@@ -48,16 +48,8 @@ ramp_to_soak:
     mov x+2, #0
     mov x+3, #0
     mov x+4, #0
-  	Load_y(1000)
-    lcall mul32
-  	Set_Cursor(1, 10)
-    lcall hex2bcd
-    lcall Display_formated_BCD
+  	Load_y(10000)
     
-    mov R2, #250
-	lcall waitms
-    
-    Load_y(10000)
     lcall mul32
     push_x
     lcall temp_into_y
@@ -93,7 +85,8 @@ soak_state:
     mov pwm, #20
     ; Transitions to next state
     clr c
-    mov a, #60
+    ;mov a, #60
+    mov a, soak_time
     subb a, seconds
     jnc $+4
     sjmp $+5
@@ -122,10 +115,11 @@ ramp_to_peak:
     ; Do state duties
     mov pwm, #100
     ; Move to next state if condition is met
-    mov x+0, #220
+    mov x+0, reflow_temp
     mov x+1, #0
     mov x+2, #0
     mov x+3, #0
+    mov x+4, #0
     Load_y(10000)
     lcall mul32
     push x+0
@@ -168,7 +162,8 @@ reflow_state:
     mov pwm, #20
     ; Transitions to next state
     clr c
-    mov a, #45
+    ;mov a, #45
+    mov a, reflow_time
     subb a, seconds
     jnc $+4
     sjmp $+5
