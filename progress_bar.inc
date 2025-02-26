@@ -93,14 +93,43 @@ Send_Constant_String(#blank)
 mov a, x+0
 lcall print_progress_bar
 
-set_cursor(2, 5)
+set_cursor(2, 11)
 pop_x
 lcall hex2bcd
-display_bcd(bcd+4)
 display_bcd(bcd+3)
 display_bcd(bcd+2)
-display_bcd(bcd+1)
-display_bcd(bcd+0)
+display_char(#'o')
+display_char(#'C')
+
+pop acc
+pop psw
+ENDMAC
+;Comment bc CrossIDE loves erroring if the last line is empty
+
+; CURRENT TIME IN X, TARGET TIME IN Y, CHANGES BOTH
+time_progress MAC
+push psw
+push acc
+push_y
+push_x
+push_y
+load_y(4)
+lcall mul32
+pop_y
+lcall div32
+Set_Cursor(2, 1)
+Send_Constant_String(#blank)
+; Loop to print out progressbar
+mov a, x+0
+lcall print_progress_bar
+
+set_cursor(2, 11)
+pop_y
+pop_x
+lcall sub32
+lcall hex2bcd
+display_bcd(bcd+3)
+display_bcd(bcd+2)
 display_char(#'o')
 display_char(#'C')
 

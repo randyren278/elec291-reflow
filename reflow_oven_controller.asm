@@ -74,6 +74,8 @@ oven_fsm_message_2: db 'Ramp to Peak!   ',0
 oven_fsm_message_3: db 'Reflow!   ',0
 oven_fsm_message_4: db 'Cooldown!   ',0
 oven_fsm_message_5: db 'You did it!   ',0
+oven_abort_message1:db 'Abort!          ',0
+oven_abort_message2:db 'Check oven!     ',0
 ;						   1234567890123456
 reset_state_message:   db 'Settings Reset! ', 0 ;for testing
 state1_message:   db 'state1          ', 0 ;for testing

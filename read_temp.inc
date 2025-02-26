@@ -26,14 +26,12 @@ Temp_Init_All:
 temp_into_x:
     push_y
     ; Set ADC to read channel 7 (Temperature Sensor Chip)
-    anl ADCCON1, #0xFE ; Disable ADC
     anl ADCCON1, #0b11111101
     anl ADCCON0, #0xF0
     orl ADCCON0, #0x07 ; Select channel 7
     ; AINDIDS select if some pins are analog inputs or digital I/O:
     mov AINDIDS, #0x00 ; Ensure only the necessary bits change
     orl AINDIDS, #0b10000000 ; Set correct analog input
-    orl ADCCON1, #0x01 ; Enable ADC
     
     clr ADCF ; Clears the Analog Digital Converter (ADC) Flag
     setb ADCS ;  ADC start trigger signal
@@ -59,14 +57,12 @@ temp_into_x:
     mov x+3, #0 
 
     ;TODO: Calibrate Temperature Sensor
-    ;Load_y(1420)
-    ;lcall mul32
+    Load_y(1420)
+    lcall mul32
 
-    ;mov y+0, #low(3020000 % 0x10000)
-    ;mov y+1, #high(3020000 % 0x10000)
-    ;mov y+2, #low(3020000 / 0x10000)
-    ;mov y+3, #high(3020000 / 0x10000)
-    ;lcall sub32
+    Load_y(3200000)
+    lcall sub32
+
     ; Read the ADC
     ;Set_Cursor(2, 2);
     ;Display_char(#'B')
@@ -81,14 +77,12 @@ temp_into_x:
     push AR6
     
     ;Change ADC Settings to read from thermocouple wire
-    anl ADCCON1, #0xFE ; Disable ADC
     anl ADCCON1, #0b11111101
     anl ADCCON0, #0xF0
     orl ADCCON0, #0x05 ; Select channel 5 WIP
     ; AINDIDS select if some pins are analog inputs or digital I/O:
     mov AINDIDS, #0x00 ; Ensure only the necessary bits change
     orl AINDIDS, #0b00100000 ; Set correct analog input
-    orl ADCCON1, #0x01 ; Enable ADC
 
     clr ADCF ; Clears the Analog Digital Converter (ADC) Flag
     setb ADCS ;  ADC start trigger signal

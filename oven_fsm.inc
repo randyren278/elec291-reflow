@@ -62,7 +62,7 @@ ramp_to_soak:
     pop_x
     clr mf
     lcall x_lteq_y
-    ;jb mf, $+6
+    jb mf, $+6
     ljmp ramp_to_soak
 ;-------------------------------------
 ; Soak_state
@@ -79,13 +79,18 @@ soak_state:
     mov x+1, #0
     mov x+2, #0
     mov x+3, #0
-    lcall hex2bcd
-    Set_Cursor(2, 1)
-    display_Bcd(bcd+4)
-    display_Bcd(bcd+3)
-    display_Bcd(bcd+2)
-    display_Bcd(bcd+1)
-    display_Bcd(bcd+0)
+    mov y+0, #120
+    mov y+1, #0
+    mov y+2, #0
+    mov y+3, #0
+    time_progress
+    ;lcall hex2bcd
+    ;Set_Cursor(2, 1)
+    ;display_Bcd(bcd+4)
+    ;display_Bcd(bcd+3)
+    ;display_Bcd(bcd+2)
+    ;display_Bcd(bcd+1)
+    ;display_Bcd(bcd+0)
 
     mov pwm, #20
     ; Transitions to next state
