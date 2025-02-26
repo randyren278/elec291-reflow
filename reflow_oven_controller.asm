@@ -69,12 +69,14 @@ done_message: 	  db 'done!',0
 stop_message: 	  db 'stopped!',0
 					   ;1234567890123456
 oven_fsm_message_0: db 'Ramp to Soak!   ',0
-oven_fsm_message_1: db 'Soak State!   ',0
+oven_fsm_message_1: db 'Soak State!     ',0
 oven_fsm_message_2: db 'Ramp to Peak!   ',0
-oven_fsm_message_3: db 'Reflow!   ',0
-oven_fsm_message_4: db 'Cooldown!   ',0
-oven_fsm_message_5: db 'You did it!   ',0
-oven_abort_message1:db 'Abort!          ',0
+oven_fsm_message_3: db 'Reflow!         ',0
+oven_fsm_message_4: db 'Cooldown!       ',0
+oven_fsm_message_5: db 'You did it!     ',0
+oven_stop_message1:db  'Oven stopped!   ',0
+oven_stop_message2:db  'WARNING: HOT!   ',0
+oven_abort_message1:db 'Temp too low!   ',0
 oven_abort_message2:db 'Check oven!     ',0
 ;						   1234567890123456
 reset_state_message:   db 'Settings Reset! ', 0 ;for testing
@@ -111,6 +113,7 @@ mf: dbit 1
 seconds_flag: dbit 1
 s_flag: dbit 1 ; set to 1 every time a second has passed
 oven_flag: dbit 1
+s_s_flag: dbit 1
 
 ;TODO: check if one is enough
 DSEG at 30H
@@ -181,6 +184,8 @@ Init_All:
 	mov AINDIDS, #0x00 ; Disable all analog inputs
 	orl AINDIDS, #0b00000001 ; Using AIN0
 	orl ADCCON1, #0x01 ; Enable ADC
+
+	clr s_s_flag
 
 	; timer 2 ?? 
 	lcall Timer2_Init
@@ -415,6 +420,7 @@ main:
     lcall LCD_4BIT
     
     lcall state_init ;From State_Machine.inc
+	lcall oven_state_init
     
     ; initial messages in LCD
 	Set_Cursor(1, 1)

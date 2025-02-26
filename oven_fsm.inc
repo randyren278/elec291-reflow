@@ -3,16 +3,18 @@
 cseg
 oven_state_init:
     ;initialize vars, start at lowest?
+    mov soak_temp, #10 ;150 decimal
+    mov soak_time, #10 ;60 decimal
+	mov reflow_time, #0x2D ;45
+	mov reflow_temp+0, #0xD9 ;217
+    mov reflow_temp+1, #0x00
     mov pwm, #0x00 ;0x00??
 	mov oven_state, #0x00 ;60 does this need to be like #60??????
-	;mov soak_temp, #0x96 ;150 decimal
-    ;mov soak_time
-	;mov reflow_time, #0x2D ;45
-	;mov reflow_temp, #0xD9 ;217
     ret
 ;oven fsm  
 FSM_Init:
     mov seconds, #0
+    setb s_s_flag
     setb oven_flag ; TODO - Reset oven_flag when we leave oven FSM
 ;power = 0, if button pressed go to state 1
 
@@ -25,13 +27,18 @@ Set_Cursor(2, 1)
 Send_Constant_String(#blank)
 lcall init_characters
 ramp_to_soak:
-    ljmp abort_check
+    lcall ADC_to_PB
+    mov c, S_S
+    jc $+8
+    jb s_s_flag, $+8
+    ljmp stop_start
+    clr s_s_flag
     ; Displays a message
     mov x+0, soak_temp
     mov x+1, #0
     mov x+2, #0
     mov x+3, #0
-    load_y(1000)
+    load_y(10000)
     lcall mul32
     push_x
     lcall temp_into_y
@@ -43,9 +50,24 @@ ramp_to_soak:
     lcall waitms
 	;lcall rst_check
     ; Do state duties
+
+    ;checking for temp < 30 for 60 secs then abort
+
+    mov a, #60 ;is this right :(
+    subb a, seconds
+    jnc dont_abort
+
+    load_y(600000)
+    lcall temp_into_x
+    clr mf
+    lcall x_lteq_y
+    jnb mf, dont_abort
+    ljmp abort_state
+
+dont_abort:
     mov pwm, #100
     ; Move to next state if condition is met
-    mov x+0, #150
+    mov x+0, soak_temp
     mov x+1, #0
     mov x+2, #0
     mov x+3, #0
@@ -67,7 +89,12 @@ Send_Constant_String(#oven_fsm_message_1)
 Set_Cursor(2, 1)
 Send_Constant_String(#blank)
 soak_state:
-    ljmp abort_check
+    lcall ADC_to_PB
+    mov c, S_S
+    jc $+8
+    jb s_s_flag, $+8
+    ljmp stop_start
+    clr s_s_flag
     ; Displays a message
     mov x+0, seconds
     mov x+1, #0
@@ -96,14 +123,19 @@ Send_Constant_String(#oven_fsm_message_2)
 Set_Cursor(2, 1)
 Send_Constant_String(#blank)
 ramp_to_peak:
-    ljmp abort_check
+    lcall ADC_to_PB
+    mov c, S_S
+    jc $+8
+    jb s_s_flag, $+8
+    ljmp stop_start
+    clr s_s_flag
     ; Displays a message
-    mov x+0, #low(reflow_temp)
-    mov x+1, #high(reflow_temp)
+    mov x+0, reflow_temp+0
+    mov x+1, reflow_temp+1
     mov x+2, #0
     mov x+3, #0
     push_x
-    load_y(1000)
+    load_y(10000)
     lcall mul32
     push_x
     lcall temp_into_y
@@ -135,13 +167,18 @@ Send_Constant_String(#oven_fsm_message_3)
 Set_Cursor(2, 1)
 Send_Constant_String(#blank)
 reflow_state:
-    ljmp abort_check
+    lcall ADC_to_PB
+    mov c, S_S
+    jc $+8
+    jb s_s_flag, $+8
+    ljmp stop_start
+    clr s_s_flag
     ; Displays a message
     mov x+0, seconds
     mov x+1, #0
     mov x+2, #0
     mov x+3, #0
-    mov y+0, #reflow_time
+    mov y+0, reflow_time
     mov y+1, #0
     mov y+2, #0
     mov y+3, #0
@@ -150,7 +187,7 @@ reflow_state:
     mov pwm, #20
     ; Transitions to next state
     clr c
-    mov a, #45
+    mov a, reflow_time
     subb a, seconds
     jnc $+4
     sjmp $+5
@@ -171,7 +208,7 @@ cooldown_state:
     mov x+1, #0
     mov x+2, #0
     mov x+3, #0
-    load_y(1000)
+    load_y(10000)
     lcall mul32
     push_x
     lcall temp_into_y
@@ -215,13 +252,15 @@ finished_state:
     lcall waitms
     lcall waitms
     ret
-abort_check:
-    ;If button = pressed
-    lcall ADC_to_PB
-    mov c, S_S
-    jnc abort_state
-    ret
-    ;
+stop_start:
+    Set_Cursor(1, 1)
+    Send_Constant_String(#oven_stop_message1)
+    Set_Cursor(2, 1)
+    Send_Constant_String(#oven_stop_message2)
+    mov pwm, #0
+    mov R2, #255
+    lcall waitms
+    ljmp cooldown_state
 abort_state:
     Set_Cursor(1, 1)
     Send_Constant_String(#oven_abort_message1)
@@ -229,3 +268,4 @@ abort_state:
     Send_Constant_String(#oven_abort_message2)
     mov pwm, #0
     ljmp finished_state
+;Hi crosside

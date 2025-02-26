@@ -83,7 +83,7 @@ push psw
 push acc
 push_x
 push_y
-load_y(4)
+load_y(40)
 lcall mul32
 pop_y
 lcall div32
@@ -161,7 +161,7 @@ push psw
 push acc
 push_y
 push_y
-load_y(4)
+load_y(40)
 lcall mul32
 pop_y
 lcall div32
