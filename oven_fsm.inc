@@ -25,6 +25,7 @@ Set_Cursor(2, 1)
 Send_Constant_String(#blank)
 lcall init_characters
 ramp_to_soak:
+    ljmp abort_check
     ; Displays a message
     mov x+0, soak_temp
     mov x+1, #0
@@ -66,6 +67,7 @@ Send_Constant_String(#oven_fsm_message_1)
 Set_Cursor(2, 1)
 Send_Constant_String(#blank)
 soak_state:
+    ljmp abort_check
     ; Displays a message
     mov x+0, seconds
     mov x+1, #0
@@ -94,6 +96,7 @@ Send_Constant_String(#oven_fsm_message_2)
 Set_Cursor(2, 1)
 Send_Constant_String(#blank)
 ramp_to_peak:
+    ljmp abort_check
     ; Displays a message
     mov x+0, #low(reflow_temp)
     mov x+1, #high(reflow_temp)
@@ -132,6 +135,7 @@ Send_Constant_String(#oven_fsm_message_3)
 Set_Cursor(2, 1)
 Send_Constant_String(#blank)
 reflow_state:
+    ljmp abort_check
     ; Displays a message
     mov x+0, seconds
     mov x+1, #0
