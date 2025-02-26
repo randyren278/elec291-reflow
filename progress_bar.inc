@@ -113,6 +113,54 @@ push acc
 push_y
 push_x
 push_y
+load_y(40)
+lcall mul32
+pop_y
+lcall div32
+Set_Cursor(2, 1)
+Send_Constant_String(#blank)
+; Loop to print out progressbar
+mov a, x+0
+lcall print_progress_bar
+
+pop_y
+pop_x
+lcall sub32 ;Get remaining time
+push_x ;1
+load_y(60)
+lcall div32 ;x now contains quotient (minutes)
+load_y(60)
+lcall mul32 ;x now contains minutes left * 60
+push_x ;2
+pop_y ;y now contains minutes left * 60 (2)
+pop_x ;x now contains remaining time (1)
+lcall sub32
+push_x ;remaining seconds (1)
+push_y ; minutes left * 60 (2)
+pop_x ;minutes left * 60 (2)
+load_y(60)
+lcall div32
+load_y(100)
+lcall mul32 ; x = minutes left * 100
+pop_y ;remaining seconds
+lcall add32
+lcall hex2bcd
+set_cursor(2, 12)
+display_bcd(bcd+1)
+display_char(#':')
+display_bcd(bcd+0)
+mov R2, #20
+lcall waitms
+pop acc
+pop psw
+ENDMAC
+
+; TARGET TEMP IN X, CURRENT TEMP IN Y, CHANGES BOTH
+cool_progress MAC
+push psw
+push acc
+push_y
+push_y
 load_y(4)
 lcall mul32
 pop_y
@@ -124,9 +172,7 @@ mov a, x+0
 lcall print_progress_bar
 
 set_cursor(2, 11)
-pop_y
 pop_x
-lcall sub32
 lcall hex2bcd
 display_bcd(bcd+3)
 display_bcd(bcd+2)

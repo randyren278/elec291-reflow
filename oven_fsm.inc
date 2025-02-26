@@ -26,7 +26,7 @@ Send_Constant_String(#blank)
 lcall init_characters
 ramp_to_soak:
     ; Displays a message
-    mov x+0, #150
+    mov x+0, soak_temp
     mov x+1, #0
     mov x+2, #0
     mov x+3, #0
@@ -38,13 +38,6 @@ ramp_to_soak:
     pop_x
     pop_y
     heating_progress
-    ;lcall hex2bcd
-    ;Set_Cursor(2, 1)
-    ;display_Bcd(bcd+4)
-    ;display_Bcd(bcd+3)
-    ;display_Bcd(bcd+2)
-    ;display_Bcd(bcd+1)
-    ;display_Bcd(bcd+0)
     mov R2, #255
     lcall waitms
 	;lcall rst_check
@@ -74,28 +67,20 @@ Set_Cursor(2, 1)
 Send_Constant_String(#blank)
 soak_state:
     ; Displays a message
-    ; Does state duties
     mov x+0, seconds
     mov x+1, #0
     mov x+2, #0
     mov x+3, #0
-    mov y+0, #120
+    mov y+0, soak_time
     mov y+1, #0
     mov y+2, #0
     mov y+3, #0
     time_progress
-    ;lcall hex2bcd
-    ;Set_Cursor(2, 1)
-    ;display_Bcd(bcd+4)
-    ;display_Bcd(bcd+3)
-    ;display_Bcd(bcd+2)
-    ;display_Bcd(bcd+1)
-    ;display_Bcd(bcd+0)
-
+    ; Does state duties
     mov pwm, #20
     ; Transitions to next state
     clr c
-    mov a, #60
+    mov a, soak_time
     subb a, seconds
     jnc $+4
     sjmp $+5
@@ -110,35 +95,29 @@ Set_Cursor(2, 1)
 Send_Constant_String(#blank)
 ramp_to_peak:
     ; Displays a message
-    
-    lcall temp_into_x
-    lcall hex2bcd
-    Send_Constant_String(#blank)
-    Set_Cursor(2, 1)
-    display_Bcd(bcd+4)
-    display_Bcd(bcd+3)
-    display_Bcd(bcd+2)
-    display_Bcd(bcd+1)
-    display_Bcd(bcd+0)
+    mov x+0, #low(reflow_temp)
+    mov x+1, #high(reflow_temp)
+    mov x+2, #0
+    mov x+3, #0
+    push_x
+    load_y(1000)
+    lcall mul32
+    push_x
+    lcall temp_into_y
+    push_y
+    pop_x
+    pop_y
+    heating_progress
 	;lcall rst_check
     ; Do state duties
     mov pwm, #100
     ; Move to next state if condition is met
-    mov x+0, #220
-    mov x+1, #0
-    mov x+2, #0
-    mov x+3, #0
+    pop_x
     Load_y(10000)
     lcall mul32
-    push x+0
-    push x+1
-    push x+2
-    push x+3
+    push_x
     lcall temp_into_y
-    pop x+3
-    pop x+2
-    pop x+1
-    pop x+0
+    pop_x
     clr mf
     lcall x_lteq_y
     
@@ -154,19 +133,16 @@ Set_Cursor(2, 1)
 Send_Constant_String(#blank)
 reflow_state:
     ; Displays a message
-    ; Does state duties
     mov x+0, seconds
     mov x+1, #0
     mov x+2, #0
     mov x+3, #0
-    lcall hex2bcd
-    Set_Cursor(2, 1)
-    display_Bcd(bcd+4)
-    display_Bcd(bcd+3)
-    display_Bcd(bcd+2)
-    display_Bcd(bcd+1)
-    display_Bcd(bcd+0)
-
+    mov y+0, #reflow_time
+    mov y+1, #0
+    mov y+2, #0
+    mov y+3, #0
+    time_progress
+    ; Does state duties
     mov pwm, #20
     ; Transitions to next state
     clr c
@@ -180,24 +156,27 @@ reflow_state:
 ;-------------------------------------
 ; Displays a message
 mov seconds, #0
-mov pwm, #0
 Set_Cursor(1, 1)
 Send_Constant_String(#oven_fsm_message_4)
 Set_Cursor(2, 1)
 Send_Constant_String(#blank)
 cooldown_state:
     
-    lcall temp_into_x
-    lcall hex2bcd
-    Set_Cursor(2, 1)
-    display_Bcd(bcd+4)
-    display_Bcd(bcd+3)
-    display_Bcd(bcd+2)
-    display_Bcd(bcd+1)
-    display_Bcd(bcd+0)
-	;lcall rst_check
+    ; Displays a message
+    mov x+0, soak_temp
+    mov x+1, #0
+    mov x+2, #0
+    mov x+3, #0
+    load_y(1000)
+    lcall mul32
+    push_x
+    lcall temp_into_y
+    push_y
+    pop_x
+    pop_y
+    cool_progress
     ; Do state duties
-    
+    mov pwm, #0
     ; Move to next state if condition is met
     mov x+0, #60
     mov x+1, #0
@@ -231,4 +210,8 @@ finished_state:
     MOV R2, #255
     lcall waitms
     lcall waitms
+    ret
+abort_check:
+    ;If button = pressed
+    ret
     ;
