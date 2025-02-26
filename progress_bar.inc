@@ -17,21 +17,21 @@ init_characters:
     WriteData(#11110B)
     WriteData(#11110B)
     WriteData(#11110B)
+    WriteData(#11110B)
+    WriteData(#11110B)
+    WriteData(#11110B)
     WriteData(#11100B)
-    WriteData(#11110B)
-    WriteData(#11110B)
-    WriteData(#11110B)
 
     ; Create custom character 50%
     WriteCommand(#0x50)
     WriteData(#11000B)
-    WriteData(#11100B)
     WriteData(#11000B)
     WriteData(#11100B)
-    WriteData(#11000B)
+    WriteData(#11100B)
+    WriteData(#11100B)
     WriteData(#11100B)
     WriteData(#11000B)
-    WriteData(#11100B)
+    WriteData(#11000B)
 
     ; Create custom character 25%
     WriteCommand(#0x58)
@@ -39,12 +39,15 @@ init_characters:
     WriteData(#10000B)
     WriteData(#10000B)
     WriteData(#11000B)
-    WriteData(#10000B)
-    WriteData(#10000B)
-    WriteData(#10000B)
     WriteData(#11000B)
+    WriteData(#10000B)
+    WriteData(#10000B)
+    WriteData(#10000B)
+
 ret
 print_progress_bar:
+Set_Cursor(2, 1)
+print_progress_bar_loop:
     cjne a, #0, progress_bar_low
     ljmp end_print_progress_bar
 
@@ -70,7 +73,7 @@ progress_bar_full:
     clr c
     subb a, #4
     jc end_print_progress_bar
-    ljmp print_progress_bar
+    ljmp print_progress_bar_loop
 end_print_progress_bar:
 ret
 
@@ -80,25 +83,26 @@ push psw
 push acc
 push_x
 push_y
-load_y(100)
+load_y(4)
 lcall mul32
 pop_y
 lcall div32
-set_cursor(2, 1)
-mov a, x+0
-
+Set_Cursor(2, 1)
+Send_Constant_String(#blank)
 ; Loop to print out progressbar
+mov a, x+0
 lcall print_progress_bar
 
-set_cursor(2, 11)
+set_cursor(2, 5)
 pop_x
 lcall hex2bcd
+display_bcd(bcd+4)
 display_bcd(bcd+3)
 display_bcd(bcd+2)
-display_char('o')
-display_char('C')
-set_cursor(2, 10)
-display_char(' ')
+display_bcd(bcd+1)
+display_bcd(bcd+0)
+display_char(#'o')
+display_char(#'C')
 
 pop acc
 pop psw

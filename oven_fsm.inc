@@ -26,19 +26,27 @@ Send_Constant_String(#blank)
 lcall init_characters
 ramp_to_soak:
     ; Displays a message
-    lcall temp_into_x
-    mov y+0, soak_temp
-    mov y+1, #0
-    mov y+2, #0
-    mov y+3, #0
-    ;heating_progress
-    lcall hex2bcd
-    Set_Cursor(2, 1)
-    display_Bcd(bcd+4)
-    display_Bcd(bcd+3)
-    display_Bcd(bcd+2)
-    display_Bcd(bcd+1)
-    display_Bcd(bcd+0)
+    mov x+0, #150
+    mov x+1, #0
+    mov x+2, #0
+    mov x+3, #0
+    load_y(1000)
+    lcall mul32
+    push_x
+    lcall temp_into_y
+    push_y
+    pop_x
+    pop_y
+    heating_progress
+    ;lcall hex2bcd
+    ;Set_Cursor(2, 1)
+    ;display_Bcd(bcd+4)
+    ;display_Bcd(bcd+3)
+    ;display_Bcd(bcd+2)
+    ;display_Bcd(bcd+1)
+    ;display_Bcd(bcd+0)
+    mov R2, #255
+    lcall waitms
 	;lcall rst_check
     ; Do state duties
     mov pwm, #100
@@ -54,8 +62,7 @@ ramp_to_soak:
     pop_x
     clr mf
     lcall x_lteq_y
-    
-    jb mf, $+6
+    ;jb mf, $+6
     ljmp ramp_to_soak
 ;-------------------------------------
 ; Soak_state
