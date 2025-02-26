@@ -37,11 +37,11 @@ $LIST
 
 CLK               EQU 16600000 ; Microcontroller system frequency in Hz
 BAUD              EQU 115200 ; Baud rate of UART in bps
-TIMER1_RATE         EQU 1000      ; 100Hz or 10ms
-TIMER1_RELOAD       EQU (65536-(CLK/(16*TIMER1_RATE))) ; Need to change timer 1 input divide to 16 in T2MOD
+TIMER1_RELOAD EQU (0x100-(CLK/(16*BAUD))) ; Need to change timer 1 input divide to 16 in T2MOD
 TIMER0_RELOAD_1MS EQU (0x10000-(CLK/1000))
 TIMER2_RATE   EQU 100     ; 1000Hz, for a timer tick of 1ms
 TIMER2_RELOAD EQU (65536-(CLK/(16*TIMER2_RATE)))
+
 
 ORG 0x0000
 	ljmp main
@@ -68,12 +68,14 @@ its_works:        db 'die',0
 done_message: 	  db 'done!',0
 stop_message: 	  db 'stopped!',0
 					   ;1234567890123456
-oven_fsm_message_0: db 'Oven State 0!   ',0
-oven_fsm_message_1: db 'Oven State 1!   ',0
-oven_fsm_message_2: db 'Oven State 2!   ',0
-oven_fsm_message_3: db 'Oven State 3!   ',0
-oven_fsm_message_4: db 'Oven State 4!   ',0
-oven_fsm_message_5: db 'Oven State 5!   ',0
+oven_fsm_message_0: db 'Ramp to Soak!   ',0
+oven_fsm_message_1: db 'Soak State!   ',0
+oven_fsm_message_2: db 'Ramp to Peak!   ',0
+oven_fsm_message_3: db 'Reflow!   ',0
+oven_fsm_message_4: db 'Cooldown!   ',0
+oven_fsm_message_5: db 'You did it!   ',0
+oven_abort_message1:db 'Abort!          ',0
+oven_abort_message2:db 'Check oven!     ',0
 ;						   1234567890123456
 reset_state_message:   db 'Settings Reset! ', 0 ;for testing
 state1_message:   db 'state1          ', 0 ;for testing
@@ -92,6 +94,7 @@ PWM_OUT   EQU P1.0 ; Logic 1=oven on
 $NOLIST
 $include(LCD_4bit.inc) ; A library of LCD related functions and utility macros
 $include(state_machine.inc)
+$include(progress_bar.inc)
 $LIST
 
 BSEG
@@ -131,107 +134,68 @@ $NOLIST
 $include(math32.inc)
 $include(read_temp.inc)
 $include(serial_port_fsm.inc)
+$include(serial.inc)
 $LIST
 
 CSEG
-
-InitSerialPort: 
-    ; Reset port configuration
-    mov P3M1, #0x00
-    mov P3M2, #0x00
-    mov P1M1, #0x00
-    mov P1M2, #0x00
-    mov P0M1, #0x00
-    mov P0M2, #0x00
-
-    ; Delay ~5ms for hardware to settle
-    mov R1, #200
-    
-InitSerialPort_Delay:
-    djnz R0, InitSerialPort_Delay
-    djnz R1, InitSerialPort_Delay
-
-    ; Configure Timer1 for UART baud rate generation
-    orl CKCON, #0x10         ; CLK is input for Timer1
-    orl PCON, #0x80          ; SMOD = 1 (double baud rate)
-    mov SCON, #0x52          ; Mode 1: 8-bit UART with variable baud rate
-    anl T3CON, #0b11011111
-    anl TMOD, #0x0F          ; Clear Timer1 configuration bits
-    orl TMOD, #0x20          ; Timer1 Mode 2 (8-bit auto-reload)
-    mov	TH1, #high(TIMER1_RELOAD)
-	mov	TL1,#low(TIMER1_RELOAD)
-    setb TR1                ; Start Timer1
-    ret
-
-putchar:
-    jnb TI, $              ; Wait until transmit complete
-    clr TI
-    mov SBUF, A
-    ret
-
-SendString:
-    clr A
-    movc A, @A+DPTR
-    jz SendStringDone
-    lcall putchar
-    inc DPTR
-    sjmp SendString
-SendStringDone:
-    ret
-
 Serial_formatted_BCD:
-    ; Transmit the BCD temperature value (stored in BCD) over serial
-    mov A, BCD+3
-    anl A, #0x0F
-    add A, #0x30
+    ; HIGH nibble in bcd+3
+    mov a, bcd+3
+    anl a, #0x0F     ; Lower nibble
+    add a, #0x30     ; Convert to ASCII
     lcall putchar
 
-    mov A, BCD+2
-    anl A, #0xF0
-    swap A
-    add A, #0x30
+    ; Next two nibbles from bcd+2
+    mov a, bcd+2
+    anl a, #0xF0
+    swap a
+    add a, #0x30
     lcall putchar
 
-    mov A, BCD+2
-    anl A, #0x0F
-    add A, #0x30
+    mov a, bcd+2
+    anl a, #0x0F
+    add a, #0x30
     lcall putchar
 
-    mov A, #'.'
+    ; Print decimal point
+    mov a, #'.'
     lcall putchar
 
-    mov A, BCD+1
-    swap A
-    anl A, #0x0F
-    add A, #0x30
+    ; Next nibble from bcd+1
+    mov a, bcd+1
+    swap a
+    anl a, #0x0F
+    add a, #0x30
     lcall putchar
 
-    mov A, BCD+1
-    anl A, #0x0F
-    add A, #0x30
+    mov a, bcd+1
+    anl a, #0x0F
+    add a, #0x30
     lcall putchar
 
-    mov A, BCD+0
-    swap A
-    anl A, #0x0F
-    add A, #0x30
+    ; Next nibble from bcd+0
+    mov a, bcd+0
+    swap a
+    anl a, #0x0F
+    add a, #0x30
     lcall putchar
 
-    mov A, BCD+0
-    anl A, #0x0F
-    add A, #0x30
+    mov a, bcd+0
+    anl a, #0x0F
+    add a, #0x30
     lcall putchar
 
-    mov A, #'C'            ; Append "C" for Celsius
+    ; Print 'C'
+    mov a, #'C'
     lcall putchar
 
-    mov A, #0x0D           ; CR
+    ; Print CR+LF
+    mov A, #0x0D
     lcall putchar
-    mov A, #0x0A           ; LF
+    mov A, #0x0A
     lcall putchar
+
     ret
-
-; finished serial port intilization 
 
 Init_All:
 	; Configure all the pins for biderectional I/O
@@ -242,13 +206,20 @@ Init_All:
 	mov	P0M1, #0x00
 	mov	P0M2, #0x00
 	
+	; Could be useful if reset errors !HELP
+	mov R1, #200
+    mov R0, #104
+    djnz R0, $   ; 4 cycles->4*60.285ns*104=25us
+    djnz R1, $-4 ; 25us*200=5.0ms
+
 	orl	CKCON, #0x10 ; CLK is the input for timer 1
 	orl	PCON, #0x80 ; Bit SMOD=1, double baud rate
 	mov	SCON, #0x52
 	anl	T3CON, #0b11011111
 	anl	TMOD, #0x0F ; Clear the configuration bits for timer 1
 	orl	TMOD, #0x20 ; Timer 1 Mode 2
-	
+	mov	TH1, #TIMER1_RELOAD
+	setb TR1
 
 	; Using timer 0 for delay functions.  Initialize here:
 	clr	TR0 ; Stop timer 0
@@ -500,7 +471,6 @@ main:
 	mov sp, #0x7f
 	lcall Temp_Init_All
 	lcall Init_All
-    lcall InitSerialPort
     lcall LCD_4BIT
     
     lcall state_init ;From State_Machine.inc
@@ -515,14 +485,14 @@ main:
 	lcall waitms
 	
 Forever:
-    ; serial port stuff
-    lcall temp_into_x
-    lcall hex2bcd
-    lcall Serial_formatted_BCD
-
 	; Wait 50 ms between readings
 	mov R2, #50
 	lcall waitms
+
+	
+	lcall temp_into_x
+	lcall hex2bcd
+	lcall Serial_formatted_BCD
 
 	; output? 
 	jnb seconds_flag, no_second
