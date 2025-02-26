@@ -213,5 +213,15 @@ finished_state:
     ret
 abort_check:
     ;If button = pressed
+    lcall ADC_to_PB
+    mov c, S_S
+    jnc abort_state
     ret
     ;
+abort_state:
+    Set_Cursor(1, 1)
+    Send_Constant_String(#oven_abort_message1)
+    Set_Cursor(2, 1)
+    Send_Constant_String(#oven_abort_message2)
+    mov pwm, #0
+    ljmp finished_state
