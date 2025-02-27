@@ -159,11 +159,11 @@ ENDMAC
 cool_progress MAC
 push psw
 push acc
-push_y ; (1)
-push_y ; (2)
+push_y ; (1) current
+push_y ; (2) current
 load_y(40)
 lcall mul32
-pop_y ; (2)
+pop_y ; (2) 
 lcall div32
 Set_Cursor(2, 1)
 Send_Constant_String(#blank)
@@ -173,6 +173,34 @@ lcall print_progress_bar
 
 set_cursor(2, 11)
 pop_x ; (1)
+lcall hex2bcd
+display_bcd(bcd+3)
+display_bcd(bcd+2)
+display_char(#'o')
+display_char(#'C')
+
+pop acc
+pop psw
+ENDMAC
+
+; TARGET HEAT IN X, CURRENT HEAT IN Y, CHANGES BOTH
+cooling_progress MAC
+push psw
+push acc
+push_x
+push_y
+load_y(40)
+lcall mul32
+pop_y
+lcall div32
+Set_Cursor(2, 1)
+Send_Constant_String(#blank)
+; Loop to print out progressbar
+mov a, x+0 ;AMOUNT OUT OF 40
+lcall print_progress_bar
+
+set_cursor(2, 11)
+pop_x
 lcall hex2bcd
 display_bcd(bcd+3)
 display_bcd(bcd+2)
