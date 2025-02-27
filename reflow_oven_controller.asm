@@ -221,8 +221,7 @@ Init_All:
 	anl	T3CON, #0b11011111
 	anl	TMOD, #0x0F ; Clear the configuration bits for timer 1
 	orl	TMOD, #0x20 ; Timer 1 Mode 2
-	mov	TH1, #HIGH(TIMER1_RELOAD)
-	mov TL1, #LOW(TIMER1_RELOAD)
+	mov	TH1, #TIMER1_RELOAD
 	setb TR1
 
 	; Using timer 0 for delay functions.  Initialize here:
