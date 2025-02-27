@@ -7,8 +7,6 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.colors import hsv_to_rgb
 from matplotlib.widgets import Button
-from matplotlib.cbook import get_sample_data
-from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 
 # -------------------------
 # 1) Initialize the Serial
@@ -95,31 +93,20 @@ temp_text = ax.text(
 )
 
 # -----------------------------------------------------
-# 5) Replace person.jpeg with a built-in sample image
-#    from Matplotlib (Grace Hopper).
+# 5) Person Emoji Setup
+#    We'll place this text emoji at the last data point
 # -----------------------------------------------------
-# Attempt to load a sample image as a "person figure"
-with get_sample_data("grace_hopper.png") as gh_file:
-    person_img = plt.imread(gh_file)
+PERSON_EMOJI = "🧑"  # Change to "👩", "👨", or any other you like
 
-# If loaded from an 8-bit image, scale to [0..1].
-if person_img.dtype == np.uint8:
-    person_img = person_img.astype(float) / 255.0
-
-# Precompute the inverted version for dark mode
-person_img_inverted = 1.0 - person_img
-
-imagebox_light = OffsetImage(person_img, zoom=0.1)
-imagebox_dark  = OffsetImage(person_img_inverted, zoom=0.1)
-
-# Create an AnnotationBbox to place the image at the last data point
-person_ab = AnnotationBbox(
-    imagebox_light,           # start with "light" version
-    (0, 0),                   # dummy coords, will update in animation
-    xycoords='data',
-    frameon=False
+# Create a Text object that we'll move around
+person_emoji_text = ax.text(
+    0, 0,                   # Initial position
+    PERSON_EMOJI,           # The emoji itself
+    fontsize=24,            # Font size for clarity
+    ha='center',            # Center horizontally at data point
+    va='center',            # Center vertically at data point
+    color='black'           # We'll invert this in dark mode
 )
-ax.add_artist(person_ab)
 
 # -----------------------------------------------------
 # 6) Data Generator
@@ -224,16 +211,19 @@ def run(update_data):
         text_color = line_color
     temp_text.set_color(text_color)
 
-    # Update the person image position to the last point
-    person_ab.xy = (t, temp_f)
+    # -------------------------
+    # Move the person emoji
+    # to the last point
+    # -------------------------
+    person_emoji_text.set_position((t, temp_f))
 
-    # Use inverted image in dark mode, normal image otherwise
+    # Set the emoji's color to black or white (or similar) in dark mode
     if dark_mode:
-        person_ab.image = imagebox_dark
+        person_emoji_text.set_color("white")
     else:
-        person_ab.image = imagebox_light
+        person_emoji_text.set_color("black")
 
-    return line, temp_text, person_ab
+    return line, temp_text, person_emoji_text
 
 # -----------------------------------------------------
 # 9) Language Switch Functions
