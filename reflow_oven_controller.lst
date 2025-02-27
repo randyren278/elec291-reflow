@@ -35,7 +35,7 @@
 0000             37   
 0000             38   CLK               EQU 16600000 ; Microcontroller system frequency in Hz
 0000             39   BAUD              EQU 115200 ; Baud rate of UART in bps
-0000             40   TIMER1_RELOAD EQU (65536-(CLK/4000)) ; Need to change timer 1 input divide to 16 in T2MOD
+0000             40   TIMER1_RELOAD EQU (65536-(CLK/(16*BAUD))) ; Need to change timer 1 input divide to 16 in T2MOD
 0000             41   TIMER0_RELOAD_1MS EQU (0x10000-(CLK/1000))
 0000             42   TIMER2_RATE   EQU 100     ; 1000Hz, for a timer tick of 1ms
 0000             43   TIMER2_RELOAD EQU (65536-(CLK/(16*TIMER2_RATE)))
@@ -316,8 +316,8 @@
 0FDC 53C4DF     221            anl     T3CON, #0b11011111
 0FDF 53890F     222            anl     TMOD, #0x0F ; Clear the configuration bits for timer 1
 0FE2 438920     223            orl     TMOD, #0x20 ; Timer 1 Mode 2
-0FE5 758DEF     224            mov     TH1, #HIGH(TIMER1_RELOAD)
-0FE8 758BCA     225            mov TL1, #LOW(TIMER1_RELOAD)
+0FE5 758DFF     224            mov     TH1, #HIGH(TIMER1_RELOAD)
+0FE8 758BF7     225            mov TL1, #LOW(TIMER1_RELOAD)
 0FEB D28E       226            setb TR1
 0FED            227   
 0FED            228            ; Using timer 0 for delay functions.  Initialize here:
