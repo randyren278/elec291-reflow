@@ -281,9 +281,7 @@ Timer2_Init:
 	mov TH2, #high(TIMER2_RELOAD)
 	mov TL2, #low(TIMER2_RELOAD)
 	; Set the reload value
-	;mov T2MOD, #1010_0000b ; !WIP could be causing timing issue?
-	mov T2MOD, #1000_0000b
-
+	mov T2MOD, #1010_0000b ; !WIP could be causing timing issue?
 	;orl T2MOD, #0x80 ; Enable timer 2 autoreload this was it before
 	mov RCMP2H, #high(TIMER2_RELOAD)
 	mov RCMP2L, #low(TIMER2_RELOAD)
