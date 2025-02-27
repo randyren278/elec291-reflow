@@ -37,7 +37,7 @@ $LIST
 
 CLK               EQU 16600000 ; Microcontroller system frequency in Hz
 BAUD              EQU 115200 ; Baud rate of UART in bps
-TIMER1_RELOAD EQU (0x100-(CLK/(16*BAUD))) ; Need to change timer 1 input divide to 16 in T2MOD
+TIMER1_RELOAD EQU (65536-(CLK/4000)) ; Need to change timer 1 input divide to 16 in T2MOD
 TIMER0_RELOAD_1MS EQU (0x10000-(CLK/1000))
 TIMER2_RATE   EQU 100     ; 1000Hz, for a timer tick of 1ms
 TIMER2_RELOAD EQU (65536-(CLK/(16*TIMER2_RATE)))
@@ -45,6 +45,7 @@ TIMER2_RELOAD EQU (65536-(CLK/(16*TIMER2_RATE)))
 
 ORG 0x0000
 	ljmp main
+
 ORG 0x002B
 	ljmp Timer2_ISR
 
@@ -220,7 +221,8 @@ Init_All:
 	anl	T3CON, #0b11011111
 	anl	TMOD, #0x0F ; Clear the configuration bits for timer 1
 	orl	TMOD, #0x20 ; Timer 1 Mode 2
-	mov	TH1, #TIMER1_RELOAD
+	mov	TH1, #HIGH(TIMER1_RELOAD)
+	mov TL1, #LOW(TIMER1_RELOAD)
 	setb TR1
 
 	; Using timer 0 for delay functions.  Initialize here:
@@ -305,6 +307,7 @@ Timer2_ISR:
 	; The two registers used in the ISR must be saved in the stack
 	push acc
 	push psw
+	push mf
 	push_y
 	push_x
 	
@@ -364,6 +367,7 @@ Timer2_ISR:
 Timer2_ISR_done:
 	pop_x
 	pop_y
+	pop mf
 	pop psw
 	pop acc
 	reti
@@ -501,7 +505,6 @@ Forever:
 	; output? 
 	jnb seconds_flag, no_second
 	clr seconds_flag
-	cpl P1.5
 
 no_second:
 

@@ -3,11 +3,11 @@
 cseg
 oven_state_init:
     ;initialize vars, start at lowest?
-    mov soak_temp, #10 ;150 decimal
-    mov soak_time, #10 ;60 decimal
-	mov reflow_time, #0x2D ;45
-	mov reflow_temp+0, #0xD9 ;217
-    mov reflow_temp+1, #0x00
+    mov soak_temp, #150 ;150 decimal
+    mov soak_time, #60 ;60 decimal
+	mov reflow_time, #45 ;45
+	mov reflow_temp+0, #217 ;217
+    mov reflow_temp+1, #0
     mov pwm, #0x00 ;0x00??
 	mov oven_state, #0x00 ;60 does this need to be like #60??????
     ret
@@ -134,7 +134,6 @@ ramp_to_peak:
     mov x+1, reflow_temp+1
     mov x+2, #0
     mov x+3, #0
-    push_x
     load_y(10000)
     lcall mul32
     push_x
@@ -143,11 +142,16 @@ ramp_to_peak:
     pop_x
     pop_y
     heating_progress
+    mov R2, #255
+    lcall waitms
 	;lcall rst_check
     ; Do state duties
     mov pwm, #100
     ; Move to next state if condition is met
-    pop_x
+    mov x+0, reflow_temp+0
+    mov x+1, reflow_temp+1
+    mov x+2, #0
+    mov x+3, #0
     Load_y(10000)
     lcall mul32
     push_x
@@ -155,7 +159,6 @@ ramp_to_peak:
     pop_x
     clr mf
     lcall x_lteq_y
-    
     jb mf, $+6
     ljmp ramp_to_peak
 ;-------------------------------------
@@ -204,39 +207,20 @@ Send_Constant_String(#blank)
 cooldown_state:
     
     ; Displays a message
-    mov x+0, #60
-    mov x+1, #0
-    mov x+2, #0
-    mov x+3, #0
-    load_y(10000)
-    lcall mul32
-    push_x
+    load_x(600000)
     lcall temp_into_y
     push_y
-    pop_x
-    pop_y
+    push_x
     cool_progress
+    mov R2, #255
+    lcall waitms
     ; Do state duties
     mov pwm, #0
     ; Move to next state if condition is met
-    mov x+0, #60
-    mov x+1, #0
-    mov x+2, #0
-    mov x+3, #0
-    Load_y(10000)
-    lcall mul32
-    push x+0
-    push x+1
-    push x+2
-    push x+3
-    lcall temp_into_y
-    pop x+3
-    pop x+2
-    pop x+1
-    pop x+0
+    pop_y
+    pop_x
     clr mf
-    lcall x_gteq_y
-    
+    lcall x_lteq_y
     jb mf, $+6
     ljmp cooldown_state
 ;-------------------------------------
