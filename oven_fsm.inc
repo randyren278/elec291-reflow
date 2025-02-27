@@ -204,7 +204,7 @@ Send_Constant_String(#blank)
 cooldown_state:
     
     ; Displays a message
-    mov x+0, soak_temp
+    mov x+0, #60
     mov x+1, #0
     mov x+2, #0
     mov x+3, #0
