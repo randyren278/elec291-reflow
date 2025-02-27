@@ -141,6 +141,64 @@ $include(serial.inc)
 $LIST
 
 CSEG
+Serial_formatted_BCD:
+    ; HIGH nibble in bcd+3
+    mov a, bcd+3
+    anl a, #0x0F     ; Lower nibble
+    add a, #0x30     ; Convert to ASCII
+    lcall putchar
+
+    ; Next two nibbles from bcd+2
+    mov a, bcd+2
+    anl a, #0xF0
+    swap a
+    add a, #0x30
+    lcall putchar
+
+    mov a, bcd+2
+    anl a, #0x0F
+    add a, #0x30
+    lcall putchar
+
+    ; Print decimal point
+    mov a, #'.'
+    lcall putchar
+
+    ; Next nibble from bcd+1
+    mov a, bcd+1
+    swap a
+    anl a, #0x0F
+    add a, #0x30
+    lcall putchar
+
+    mov a, bcd+1
+    anl a, #0x0F
+    add a, #0x30
+    lcall putchar
+
+    ; Next nibble from bcd+0
+    mov a, bcd+0
+    swap a
+    anl a, #0x0F
+    add a, #0x30
+    lcall putchar
+
+    mov a, bcd+0
+    anl a, #0x0F
+    add a, #0x30
+    lcall putchar
+
+    ; Print 'C'
+    mov a, #'C'
+    lcall putchar
+
+    ; Print CR+LF
+    mov A, #0x0D
+    lcall putchar
+    mov A, #0x0A
+    lcall putchar
+
+    ret
 Init_All:
 	; Configure all the pins for biderectional I/O
 	mov	P3M1, #0x00
@@ -436,6 +494,10 @@ Forever:
 	mov R2, #50
 	lcall waitms
 
+	lcall temp_into_x
+	lcall hex2bcd
+	lcall Serial_formatted_BCD
+	
 	; output? 
 	jnb seconds_flag, no_second
 	clr seconds_flag
