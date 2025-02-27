@@ -321,6 +321,10 @@ Timer2_ISR:
 	inc seconds ; It is super easy to keep a seconds count here
 	setb seconds_flag
    
+
+   	lcall temp_into_x
+	lcall hex2bcd
+	lcall Serial_formatted_BCD
     ;inc seconds ; It is super easy to keep a seconds count here
 
 
@@ -494,10 +498,6 @@ Forever:
 	mov R2, #50
 	lcall waitms
 
-	lcall temp_into_x
-	lcall hex2bcd
-	lcall Serial_formatted_BCD
-	
 	; output? 
 	jnb seconds_flag, no_second
 	clr seconds_flag
