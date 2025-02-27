@@ -232,9 +232,10 @@ def run(update_data):
     line.set_data(xdata, yvals)
 
     # Scroll the x-axis if needed
-    if t > xsize:
-        ax.set_xlim(t - xsize, t)
+    #if t > xsize:
+    #    ax.set_xlim(t - xsize, t)
 
+    # remove teh scroll 
     # Adjust y-axis if we exceed the current limit
     margin = 5
     y_min, y_max = ax.get_ylim()
