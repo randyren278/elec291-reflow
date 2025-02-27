@@ -279,4 +279,19 @@ abort_state:
     Send_Constant_String(#oven_abort_message2)
     mov pwm, #0
     ljmp finished_state
-;Hi crosside
+
+Beep_Seconds:
+    lcall Speaker_Init      
+beep_loop:
+    mov a, R2
+    jz beep_done
+    dec R2
+    mov R3, #1000
+    lcall waitms            
+    sjmp beep_loop
+
+beep_done:
+    clr TR1               
+    clr ET1
+    clr SOUND_OUT
+    ret
