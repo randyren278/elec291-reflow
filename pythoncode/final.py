@@ -234,7 +234,7 @@ def run(update_data):
     # Scroll the x-axis if needed
     # Force the left side to stay at 0, 
 # and expand the right side to the current time (t).
-    if t <= 0:
+    if t <= 100:
         ax.set_xlim(0, 100)     # Avoids a 0-width axis when t=0
     else:
         ax.set_xlim(0, t + 2) # or just ax.set_xlim(0, t)
