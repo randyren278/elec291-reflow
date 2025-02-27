@@ -159,11 +159,11 @@ ENDMAC
 cool_progress MAC
 push psw
 push acc
-push_y
-push_y
+push_y ; (1)
+push_y ; (2)
 load_y(40)
 lcall mul32
-pop_y
+pop_y ; (2)
 lcall div32
 Set_Cursor(2, 1)
 Send_Constant_String(#blank)
@@ -172,7 +172,7 @@ mov a, x+0
 lcall print_progress_bar
 
 set_cursor(2, 11)
-pop_x
+pop_x ; (1)
 lcall hex2bcd
 display_bcd(bcd+3)
 display_bcd(bcd+2)
