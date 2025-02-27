@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.colors import hsv_to_rgb
 from matplotlib.widgets import Button
+from matplotlib.cbook import get_sample_data
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 
 # -------------------------
@@ -94,11 +95,14 @@ temp_text = ax.text(
 )
 
 # -----------------------------------------------------
-# 5) Person Image Setup
-#    We'll place this image at the tip of the line
+# 5) Replace person.jpeg with a built-in sample image
+#    from Matplotlib (Grace Hopper).
 # -----------------------------------------------------
-person_img = plt.imread('person.jpeg')  # Load your image
-# Convert to float in [0..1] if needed:
+# Attempt to load a sample image as a "person figure"
+with get_sample_data("grace_hopper.png") as gh_file:
+    person_img = plt.imread(gh_file)
+
+# If loaded from an 8-bit image, scale to [0..1].
 if person_img.dtype == np.uint8:
     person_img = person_img.astype(float) / 255.0
 
