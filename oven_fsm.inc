@@ -114,6 +114,9 @@ soak_state:
     jnc $+4
     sjmp $+5
     ljmp soak_state
+    mov R2, #2
+    lcall Beep_Seconds
+
 ;-------------------------------------
 ; Ramp to peak
 ;-------------------------------------
@@ -192,6 +195,9 @@ reflow_state:
     jnc $+4
     sjmp $+5
     ljmp reflow_state
+    mov R2, #2
+    lcall Beep_Seconds
+
 ;-------------------------------------
 ; Cool down
 ;-------------------------------------
@@ -247,6 +253,11 @@ Set_Cursor(1, 1)
 Send_Constant_String(#done_message)
 Set_Cursor(2, 1)
 Send_Constant_String(#blank)
+
+mov R2, #5
+lcall Beep_Seconds
+
+
 finished_state:
     MOV R2, #255
     lcall waitms

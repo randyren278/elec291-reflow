@@ -37,14 +37,23 @@ $LIST
 
 CLK               EQU 16600000 ; Microcontroller system frequency in Hz
 BAUD              EQU 115200 ; Baud rate of UART in bps
-TIMER1_RELOAD EQU (0x100-(CLK/(16*BAUD))) ; Need to change timer 1 input divide to 16 in T2MOD
+;TIMER1_RELOAD EQU (0x100-(CLK/(16*BAUD))) ; Need to change timer 1 input divide to 16 in T2MOD
 TIMER0_RELOAD_1MS EQU (0x10000-(CLK/1000))
 TIMER2_RATE   EQU 100     ; 1000Hz, for a timer tick of 1ms
 TIMER2_RELOAD EQU (65536-(CLK/(16*TIMER2_RATE)))
 
+; speaker 
+T1_SPEAKER_RATE    EQU 4000
+T1_SPEAKER_RELOAD  EQU (65536 - (CLK / T1_SPEAKER_RATE))
+
 
 ORG 0x0000
 	ljmp main
+org 0x000B
+    reti
+org 0x001B
+    ljmp Timer1_ISR
+
 ORG 0x002B
 	ljmp Timer2_ISR
 
@@ -90,7 +99,8 @@ LCD_D4 equ P0.0
 LCD_D5 equ P0.1
 LCD_D6 equ P0.2
 LCD_D7 equ P0.3
-SOUND_OUT equ P1.5
+
+SOUND_OUT equ P1.5 ; speaker driven here 
 PWM_OUT   EQU P1.0 ; Logic 1=oven on
 
 $NOLIST
@@ -199,6 +209,31 @@ Serial_formatted_BCD:
     lcall putchar
 
     ret
+
+Timer1_ISR:
+    clr  TR1
+    mov  TH1, #HIGH(T1_SPEAKER_RELOAD)
+    mov  TL1, #LOW(T1_SPEAKER_RELOAD)
+    setb TR1
+
+    ; Toggle speaker pin
+    cpl  SOUND_OUT
+    reti
+
+Speaker_Init:
+    orl  CKCON, #0x08
+    mov  a, TMOD
+    anl  a, #0x0F       
+    orl  a, #0x10      
+    mov  TMOD, a
+
+    mov  TH1, #HIGH(T1_SPEAKER_RELOAD)
+    mov  TL1, #LOW(T1_SPEAKER_RELOAD)
+
+    setb ET1
+    setb TR1
+    ret
+
 Init_All:
 	; Configure all the pins for biderectional I/O
 	mov	P3M1, #0x00
@@ -214,14 +249,14 @@ Init_All:
     djnz R0, $   ; 4 cycles->4*60.285ns*104=25us
     djnz R1, $-4 ; 25us*200=5.0ms
 
-	orl	CKCON, #0x10 ; CLK is the input for timer 1
-	orl	PCON, #0x80 ; Bit SMOD=1, double baud rate
-	mov	SCON, #0x52
-	anl	T3CON, #0b11011111
-	anl	TMOD, #0x0F ; Clear the configuration bits for timer 1
-	orl	TMOD, #0x20 ; Timer 1 Mode 2
-	mov	TH1, #TIMER1_RELOAD
-	setb TR1
+	;orl	CKCON, #0x10 ; CLK is the input for timer 1
+	;orl	PCON, #0x80 ; Bit SMOD=1, double baud rate
+	;mov	SCON, #0x52
+	;anl	T3CON, #0b11011111
+	;anl	TMOD, #0x0F ; Clear the configuration bits for timer 1
+	;orl	TMOD, #0x20 ; Timer 1 Mode 2
+	;mov	TH1, #TIMER1_RELOAD
+	;setb TR1
 
 	; Using timer 0 for delay functions.  Initialize here:
 	clr	TR0 ; Stop timer 0
