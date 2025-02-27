@@ -42,6 +42,19 @@ ax.set_title("Reflow Oven Temperature")
 ax.grid(True)
 
 # -------------------------
+# 2.1) Live Temperature Text (Top-Right)
+# -------------------------
+temp_text = ax.text(
+    0.95, 0.95,        # x,y position in axis coordinates
+    "",                # initial text
+    transform=ax.transAxes,
+    ha='right',        # horizontal alignment
+    va='top',          # vertical alignment
+    fontsize=12,
+    color='blue'
+)
+
+# -------------------------
 # 3) Data Generator
 # -------------------------
 def data_gen():
@@ -73,19 +86,19 @@ def data_gen():
 
 # -------------------------
 # 4) Color Mapping Function
-#    (0°C -> Blue, 240°C -> Red)
+#    (0°C -> Blue, 280°C -> Red)
 # -------------------------
 def temperature_to_color(temp):
     """
-    Maps temp in [0..240] °C to a hue in [2/3..0].
+    Maps temp in [0..280] °C to a hue in [2/3..0].
     0 => pure blue (hue=2/3), 
-    240 => pure red (hue=0).
+    280 => pure red (hue=0).
     """
-    # Clamp temperature to [0, 240]
-    t_clamped = max(0, min(240, temp))
+    # Clamp temperature to [0, 280]
+    t_clamped = max(0, min(280, temp))
     
-    # Fraction of the way to 240
-    fraction = t_clamped / 240.0
+    # Fraction of the way to 280
+    fraction = t_clamped / 280.0
     
     # Hue goes from 0.6667 (blue) down to 0 (red)
     hue = 0.6667 * (1.0 - fraction)
@@ -115,11 +128,16 @@ def run(update_data):
     # Update the line data
     line.set_data(xdata, ydata)
 
-    # Color based on temperature (0 -> blue, 240 -> red)
+    # Color based on temperature (0 -> blue, 280 -> red)
     line_color = temperature_to_color(temp)
     line.set_color(line_color)
 
-    return line,
+    # -------------------------
+    # Update Live Temperature Text
+    # -------------------------
+    temp_text.set_text(f"{temp:.2f} °C")
+
+    return line, temp_text
 
 # -------------------------
 # 6) On-Close Handler
