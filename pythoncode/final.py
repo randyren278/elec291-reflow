@@ -232,12 +232,17 @@ def run(update_data):
     line.set_data(xdata, yvals)
 
     # Scroll the x-axis if needed
-    #if t > xsize:
-    #    ax.set_xlim(t - xsize, t)
+    # Force the left side to stay at 0, 
+# and expand the right side to the current time (t).
+    if t <= 0:
+        ax.set_xlim(0, 1)     # Avoids a 0-width axis when t=0
+    else:
+        ax.set_xlim(0, t + 1) # or just ax.set_xlim(0, t)
+
 
     # remove teh scroll 
     # Adjust y-axis if we exceed the current limit
-    margin = 5
+    margin = 10
     y_min, y_max = ax.get_ylim()
     if temp_display > (y_max - margin):
         ax.set_ylim(y_min, temp_display + margin)
