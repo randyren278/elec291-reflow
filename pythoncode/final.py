@@ -12,7 +12,7 @@ from matplotlib.widgets import Button
 # 1) Initialize the Serial
 # -------------------------
 ser = serial.Serial(
-    port='COM4',            # Change to your actual COM port
+    port='COM3',            # Change to your actual COM port
     baudrate=115200,
     parity=serial.PARITY_NONE,
     stopbits=serial.STOPBITS_ONE,
@@ -235,9 +235,9 @@ def run(update_data):
     # Force the left side to stay at 0, 
 # and expand the right side to the current time (t).
     if t <= 0:
-        ax.set_xlim(0, 1)     # Avoids a 0-width axis when t=0
+        ax.set_xlim(0, 100)     # Avoids a 0-width axis when t=0
     else:
-        ax.set_xlim(0, t + 1) # or just ax.set_xlim(0, t)
+        ax.set_xlim(0, t + 2) # or just ax.set_xlim(0, t)
 
 
     # remove teh scroll 
